@@ -41,28 +41,28 @@ class ProductOut(ProductCreate):
 
 class OutfitOut(BaseModel):
     id: int
-    product_ids: list[int]
-    description: str
-    pos_prompt: str
-    neg_prompt: str
-    style_tags: list[str]
-    scene: str
-    body_type_suitability: str
-    created_at: datetime
+    product_ids: list[int] = []
+    description: Optional[str] = ""
+    pos_prompt: Optional[str] = ""
+    neg_prompt: Optional[str] = ""
+    style_tags: list[str] = []
+    scene: Optional[str] = ""
+    body_type_suitability: Optional[str] = ""
+    created_at: Optional[datetime] = None
     model_config = {"from_attributes": True}
 
 
 class PostOut(BaseModel):
     id: int
-    outfit_id: Optional[int]
-    images: list[str]
-    title: str
-    content: str
-    hashtags: list[str]
-    product_tags: list[dict]
-    status: str
-    created_at: datetime
-    published_at: Optional[datetime]
+    outfit_id: Optional[int] = None
+    images: list[str] = []
+    title: Optional[str] = ""
+    content: Optional[str] = ""
+    hashtags: list[str] = []
+    product_tags: list[dict] = []
+    status: Optional[str] = "draft"
+    created_at: Optional[datetime] = None
+    published_at: Optional[datetime] = None
     outfit: Optional[OutfitOut] = None
     model_config = {"from_attributes": True}
 

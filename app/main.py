@@ -4,6 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from app.database import init_db
 from app.config import get_settings
+from app.routes import generate, posts, trends
 
 settings = get_settings()
 
@@ -17,6 +18,10 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="AI 穿搭博主 Agent", version="0.1.0", lifespan=lifespan)
+
+app.include_router(generate.router)
+app.include_router(posts.router)
+app.include_router(trends.router)
 
 app.mount("/images", StaticFiles(directory=settings.storage_dir), name="images")
 
