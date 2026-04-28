@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 穿搭博主 Agent - {% block title %}管理后台{% endblock %}</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; color: #333; }
+        nav { background: #ff2442; color: white; padding: 16px 24px; display: flex; gap: 24px; align-items: center; }
+        nav a { color: white; text-decoration: none; font-weight: 500; }
+        nav a:hover { text-decoration: underline; }
+        nav .brand { font-size: 18px; font-weight: 700; margin-right: 16px; }
+        .container { max-width: 1200px; margin: 24px auto; padding: 0 24px; }
+        .card { background: white; border-radius: 8px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .btn { display: inline-block; padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; font-size: 14px; }
+        .btn-primary { background: #ff2442; color: white; }
+        .btn-success { background: #07c160; color: white; }
+        .btn-warning { background: #ff976a; color: white; }
+        .btn-danger { background: #ee0a24; color: white; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 12px; }
+        .badge-draft { background: #ffd666; color: #ad6800; }
+        .badge-reviewed { background: #87d068; color: #135200; }
+        .badge-published { background: #07c160; color: white; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background: #fafafa; font-weight: 600; }
+        .image-gallery { display: flex; gap: 12px; flex-wrap: wrap; }
+        .image-gallery img { width: 300px; border-radius: 8px; }
+        textarea { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+        input[type="text"], input[type="number"] { width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <nav>
+        <span class="brand">AI 穿搭博主 Agent</span>
+        <a href="/">内容列表</a>
+        <a href="/trends">趋势数据</a>
+        <a href="/health">健康检查</a>
+    </nav>
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>

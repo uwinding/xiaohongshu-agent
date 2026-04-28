@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}{{ post.title }}{% endblock %}
+{% block content %}
+<h1>{{ post.title }}</h1>
+<div style="margin: 8px 0; color: #999;">
+    状态: <span class="badge badge-{{ post.status }}">{{ post.status }}</span>
+    创建时间: {{ post.created_at[:19] if post.created_at }}
+</div>
+
+{% if post.images %}
+<div class="card">
+    <h3>生成图片</h3>
+    <div class="image-gallery">
+        {% for img in post.images %}
+            <img src="/images/{{ img.split('/')[-2] }}/{{ img.split('/')[-1] }}" alt="穿搭图">
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<div class="card">
+    <h3>正文</h3>
+    <p style="white-space: pre-wrap; line-height: 1.8;">{{ post.content }}</p>
+</div>
+
+<div class="card">
+    <h3>话题标签</h3>
+    <p>{% for tag in (post.hashtags or []) %}<span style="margin-right:8px; color:#ff2442;">#{{ tag }}</span>{% endfor %}</p>
+</div>
+
+{% if post.product_tags %}
+<div class="card">
+    <h3>商品标记</h3>
+    <ul>
+    {% for pt in post.product_tags %}
+        <li><a href="{{ pt.url }}" target="_blank">{{ pt.name }}</a></li>
+    {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+{% if post.outfit %}
+<div class="card">
+    <h3>穿搭方案</h3>
+    <p>{{ post.outfit.description }}</p>
+</div>
+{% endif %}
+
+<div class="card">
+    <h3>操作</h3>
+    <button type="button" class="btn btn-success" onclick="updateStatus('reviewed')">审核通过</button>
+    <button type="button" class="btn btn-warning" onclick="updateStatus('draft')">打回草稿</button>
+    <button type="button" class="btn btn-danger" onclick="updateStatus('published')">标记已发布</button>
+</div>
+
+<script>
+async function updateStatus(status) {
+    const postId = window.location.pathname.split('/').pop();
+    const resp = await fetch(`/api/posts/${postId}`, {
+        method: 'PATCH',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({status: status})
+    });
+    if (resp.ok) location.reload();
+    else alert('操作失败');
+}
+</script>
+{% endblock %}

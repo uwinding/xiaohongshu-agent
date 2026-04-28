@@ -2,9 +2,13 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
-from app.database import init_db
+from app.database import init_db, get_db
 from app.config import get_settings
+from app.models import GeneratedPost, Trend
 from app.routes import generate, posts, trends
+from fastapi import Request, Depends
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 
 settings = get_settings()
 
@@ -24,6 +28,28 @@ app.include_router(posts.router)
 app.include_router(trends.router)
 
 app.mount("/images", StaticFiles(directory=settings.storage_dir), name="images")
+
+templates = Jinja2Templates(directory="app/templates")
+
+
+@app.get("/", response_class=HTMLResponse)
+def index(request: Request, db=Depends(get_db)):
+    posts = db.query(GeneratedPost).order_by(GeneratedPost.created_at.desc()).all()
+    return templates.TemplateResponse("index.html", {"request": request, "posts": posts})
+
+
+@app.get("/post/{post_id}", response_class=HTMLResponse)
+def post_detail(post_id: int, request: Request, db=Depends(get_db)):
+    post = db.query(GeneratedPost).filter(GeneratedPost.id == post_id).first()
+    if not post:
+        return HTMLResponse("Post not found", status_code=404)
+    return templates.TemplateResponse("post_detail.html", {"request": request, "post": post})
+
+
+@app.get("/trends", response_class=HTMLResponse)
+def trends_page(request: Request, db=Depends(get_db)):
+    trends_data = db.query(Trend).order_by(Trend.fetch_date.desc()).limit(50).all()
+    return templates.TemplateResponse("trends.html", {"request": request, "trends": trends_data})
 
 
 @app.get("/health")
