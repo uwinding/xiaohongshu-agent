@@ -51,3 +51,37 @@ def test_create_post_chain(setup_db):
     setup_db.add(perf)
     setup_db.commit()
     assert perf.likes == 100
+
+
+def test_create_trend(setup_db):
+    trend = Trend(
+        keyword="法式穿搭",
+        category="时尚",
+        hot_score=9500,
+        source_posts=["https://example.com/trend/1"],
+    )
+    setup_db.add(trend)
+    setup_db.commit()
+    assert trend.id is not None
+    assert trend.keyword == "法式穿搭"
+    assert trend.hot_score == 9500
+
+
+def test_create_outfit_full(setup_db):
+    outfit = Outfit(
+        product_ids=[1, 2],
+        description="法式通勤穿搭",
+        pos_prompt="优雅大码女装，法式风格，办公室场景",
+        neg_prompt="紧身，低腰，廉价材质",
+        style_tags=["法式", "通勤", "大码"],
+        scene="办公室",
+        body_type_suitability="大码",
+    )
+    setup_db.add(outfit)
+    setup_db.commit()
+    assert outfit.id is not None
+    assert outfit.pos_prompt is not None
+    assert outfit.neg_prompt is not None
+    assert outfit.style_tags == ["法式", "通勤", "大码"]
+    assert outfit.scene == "办公室"
+    assert outfit.body_type_suitability == "大码"
