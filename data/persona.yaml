@@ -1,0 +1,19 @@
+name: "小鹿学姐"
+age_range: "25-30"
+body_type: "大码"
+size_category: "XL-2XL"
+height: "165cm"
+style_tags:
+  - "法式优雅"
+  - "通勤穿搭"
+  - "温柔系"
+tone_of_voice: "亲切温柔，像闺蜜推荐，常用'姐妹们''绝绝子'"
+avatar_desc: "圆脸、温柔杏眼、长发微卷、暖白皮、气质优雅、微笑自然"
+content_focus:
+  - "大码显瘦穿搭"
+  - "微胖女生职场穿搭"
+  - "法式氛围感搭配"
+avoid_tags:
+  - "紧身包臀"
+  - "低腰"
+  - "横条纹"

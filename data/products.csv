@@ -1,0 +1,4 @@
+name,category,price,brand,size_available,source_url,attributes
+"法式碎花连衣裙 大码显瘦",裙装,199,"某品牌","XL-4XL","https://example.com/product/1","{""color"":""碎花蓝"",""fabric"":""雪纺"",""fit"":""A字""}"
+"高腰阔腿裤 通勤显高",裤装,159,"某品牌","M-3XL","https://example.com/product/2","{""color"":""黑色"",""fabric"":""西装料"",""fit"":""阔腿""}"
+"短款针织开衫 法式温柔",上衣,129,"某品牌","M-2XL","https://example.com/product/3","{""color"":""米白"",""fabric"":""针织"",""fit"":""短款""}"
