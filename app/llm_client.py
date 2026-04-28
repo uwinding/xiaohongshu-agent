@@ -1,5 +1,6 @@
 from dataclasses import dataclass
-from openai import OpenAI
+import time
+from openai import OpenAI, APIError, APIConnectionError, RateLimitError
 from app.config import get_settings
 
 
@@ -45,8 +46,9 @@ class LLMClient:
                 content = completion.choices[0].message.content or ""
                 tokens = completion.usage.total_tokens if completion.usage else 0
                 return LLMResponse(content=content, model=self.model, tokens_used=tokens)
-            except Exception as e:
+            except (APIError, APIConnectionError, RateLimitError) as e:
                 last_error = e
+                time.sleep(2 ** attempt)
                 continue
 
         raise RuntimeError(f"LLM call failed after {max_retries} attempts: {last_error}")
