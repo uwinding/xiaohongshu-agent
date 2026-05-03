@@ -43,7 +43,7 @@ class ImageGenerator(BaseSkill):
 
     def _generate_images(self, prompt: str, num: int) -> list[str]:
         settings = get_settings()
-        client = OpenAI(api_key=settings.openai_api_key, base_url=settings.openai_base_url)
+        client = OpenAI(api_key=settings.image_api_key, base_url=settings.image_base_url)
         model = settings.image_model
 
         response = client.images.generate(model=model, prompt=prompt, n=min(num, 3), size="1024x1024", quality="standard")

@@ -8,8 +8,8 @@ from app.llm_client import LLMClient, LLMResponse
 def mock_settings():
     with patch("app.llm_client.get_settings") as mock:
         settings = MagicMock()
-        settings.openai_api_key = "test-key"
-        settings.openai_base_url = "https://api.openai.com/v1"
+        settings.llm_api_key = "test-key"
+        settings.llm_base_url = "https://api.openai.com/v1"
         settings.llm_model = "gpt-4o"
         settings.image_model = "dall-e-3"
         mock.return_value = settings

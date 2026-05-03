@@ -14,8 +14,8 @@ class LLMResponse:
 class LLMClient:
     def __init__(self, api_key: str | None = None, base_url: str | None = None, model: str | None = None):
         settings = get_settings()
-        self.api_key = api_key or settings.openai_api_key
-        self.base_url = base_url or settings.openai_base_url
+        self.api_key = api_key or settings.llm_api_key
+        self.base_url = base_url or settings.llm_base_url
         self.model = model or settings.llm_model
         self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
 

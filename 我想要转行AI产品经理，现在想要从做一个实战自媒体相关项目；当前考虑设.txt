@@ -1,0 +1,20 @@
+我想要转行AI产品经理，现在想要从做一个实战自媒体相关项目；当前考虑设计一个实现小红书穿搭博主自动发文生图的ai agent。
+1. 分析赛道的痛点，细分项目内容，结合痛点进行agent设计
+2. 项目目标：实现通过AI虚拟博主结合特定的服装博文就能生产图片博文，成功实现小红书带货流量变现
+3. 我会和一个工程师合作，设计当前ai agent，需要拆分两个人的工作任务，工程师主要完成代码部分内容
+4. 可以参考ribbi，对项目进行优化改进
+5. 作为面试用途的项目，需要把控项目整体复杂度和耗时
+6. 将以上内容总结成md文档保存在当前目录
+
+
+New session - 2026-04-28T14:45:10.708Z
+
+ Session   New session - 2026-04-28T14:45:10.708Z
+  Continue  
+
+
+opencode -s ses_22b72e44bffe4dfIWAIVrVXHSf
+
+
+ofox：
+sk-of-DSBLSpqIEiAGRgZGmttqJpuWOJEKeEhqjdWRgTNeNUPkWIDbmYSAEysQiiMvqmmI
