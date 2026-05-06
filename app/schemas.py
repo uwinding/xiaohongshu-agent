@@ -98,6 +98,7 @@ class GenerateRequest(BaseModel):
     product_url: str = ""
     product_ids: list[int] = []
     persona_id: int = 1
+    num_images: int = 1
     style: str = ""
     scene: str = ""
 

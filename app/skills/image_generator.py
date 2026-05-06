@@ -46,21 +46,28 @@ class ImageGenerator(BaseSkill):
         client = OpenAI(api_key=settings.image_api_key, base_url=settings.image_base_url)
         model = settings.image_model
 
-        response = client.images.generate(model=model, prompt=prompt, n=min(num, 3), size="1024x1024", quality="standard")
-
         date_dir = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         dir_path = self.storage_dir / date_dir
         dir_path.mkdir(parents=True, exist_ok=True)
 
         paths = []
-        for img in response.data:
-            if img.url:
-                img_data = requests.get(img.url, timeout=30)
-                img_data.raise_for_status()
-                filename = f"{uuid.uuid4().hex[:12]}.png"
-                filepath = dir_path / filename
-                with open(filepath, 'wb') as f:
-                    f.write(img_data.content)
-                paths.append(str(filepath))
+        for i in range(min(num, 3)):
+            print(f"      生图 {i+1}/{min(num,3)}...")
+            response = client.images.generate(
+                model=model,
+                prompt=prompt,
+                n=1,
+                size="2K",
+                extra_body={"output_format": "png", "watermark": False},
+            )
+            for img in response.data:
+                if img.url:
+                    img_data = requests.get(img.url, timeout=30)
+                    img_data.raise_for_status()
+                    filename = f"{uuid.uuid4().hex[:12]}.png"
+                    filepath = dir_path / filename
+                    with open(filepath, 'wb') as f:
+                        f.write(img_data.content)
+                    paths.append(str(filepath))
 
         return paths

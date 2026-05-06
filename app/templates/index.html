@@ -10,6 +10,7 @@
     <h2 style="margin-bottom: 12px;">生成新穿搭内容</h2>
     <form id="gen-form">
         <div style="margin-bottom: 12px;"><label>博主ID: <input type="number" id="persona_id" value="1" style="width:100px;"></label></div>
+        <div style="margin-bottom: 12px;"><label>生成数量: <select id="num_images"><option value="1">1张</option><option value="2">2张</option><option value="3" selected>3张</option></select></label></div>
         <div style="margin-bottom: 12px;"><label>风格 (可选): <input type="text" id="style" placeholder="法式/通勤/韩系"></label></div>
         <div style="margin-bottom: 12px;"><label>场景 (可选): <input type="text" id="scene" placeholder="咖啡馆/街拍/办公室"></label></div>
         <button type="button" class="btn btn-success" onclick="generatePost()">开始生成</button>
@@ -44,21 +45,32 @@
 
 <script>
 async function generatePost() {
-    const resp = await fetch('/api/generate', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-            persona_id: parseInt(document.getElementById('persona_id').value) || 1,
-            style: document.getElementById('style').value,
-            scene: document.getElementById('scene').value
-        })
-    });
-    if (resp.ok) {
-        alert('生成成功！');
-        location.reload();
-    } else {
-        alert('生成失败');
+    const btn = event.target;
+    btn.disabled = true;
+    btn.textContent = '生成中...';
+    try {
+        const resp = await fetch('/api/generate', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                persona_id: parseInt(document.getElementById('persona_id').value) || 1,
+                num_images: parseInt(document.getElementById('num_images').value) || 1,
+                style: document.getElementById('style').value,
+                scene: document.getElementById('scene').value
+            })
+        });
+        const data = await resp.json().catch(() => resp.text());
+        if (resp.ok) {
+            alert('生成成功！');
+            location.reload();
+        } else {
+            alert('生成失败: ' + JSON.stringify(data).slice(0, 500));
+        }
+    } catch (e) {
+        alert('网络错误: ' + e.message);
     }
+    btn.disabled = false;
+    btn.textContent = '开始生成';
 }
 </script>
 {% endblock %}

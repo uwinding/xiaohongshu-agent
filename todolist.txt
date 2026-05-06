@@ -1,0 +1,100 @@
+============================================================
+  AI 穿搭博主 Agent — 后续待办清单 (PM)
+============================================================
+
+【第一步：环境准备】
+
+1. 安装 Python 依赖
+   cd /home/lhy/workspace
+   pip install -e ".[dev]"
+
+2. 创建 .env 配置文件
+   cp .env.example .env
+   然后编辑 .env，填入真实 API Key：
+
+   LLM_API_KEY=你在 opencode.ai 的 API Key          ← 去 opencode.ai 获取
+   LLM_BASE_URL=https://opencode.ai/zen/go/v1       ← 不动
+   LLM_MODEL=deepseek-v4-pro                        ← 不动
+
+   IMAGE_API_KEY=你在 ofox.ai 的 API Key             ← 去 https://ofox.ai 注册获取
+   IMAGE_BASE_URL=https://api.ofox.ai/v1            ← 不动
+   IMAGE_MODEL=gpt-image-2                          ← 不动
+
+3. 初始化数据库和默认数据
+   python scripts/seed.py
+
+4. 启动服务
+   uvicorn app.main:app --reload
+   浏览器打开 http://localhost:8000 看到管理后台
+
+
+【第二步：验证核心链路】
+
+5. 通过管理后台页面点"手动生成新内容"，测试全链路
+   或者用 curl 调用 API：
+   curl -X POST http://localhost:8000/api/generate \
+     -H "Content-Type: application/json" \
+     -d '{"persona_id": 1}'
+
+6. 检查生成结果：
+   - 穿搭描述是否合理？
+   - 生成的图片质量如何？
+   - 文案风格是否符合小红书调性？
+
+
+【第三步：PM 核心工作 — Prompt 调优】
+
+7. 逐个 Skill 调整 System Prompt（都在 app/skills/ 目录下）：
+   bug
+   app/skills/product_matcher.py    → 商品匹配逻辑 + 体型约束规则
+   app/skills/outfit_composer.py    → 穿搭方案描述 + 生图 Prompt 模板
+   app/skills/content_writer.py     → 小红书文案风格 + 标题公式
+   app/skills/trend_radar.py        → 趋势分析 Prompt
+
+8. 每轮调 Prompt 后重新生成内容，记录效果对比
+
+
+【第四步：PM 核心工作 — 内容体系建设】
+
+9. 丰富商品库（data/products.csv）：
+   - 至少添加 20-30 件真实商品
+   - 覆盖：上装/下装/连衣裙/外套/配饰
+   - attributes 字段必填：fit(版型)、color(颜色)、fabric(材质)
+
+10. 设计更多虚拟博主（data/persona.yaml 或直接在数据库添加）：
+    - 当前只有"小鹿学姐"（大码/法式/通勤）
+    - 建议加：小个子博主、韩系博主、平价学生党博主
+
+11. 制定内容质量审核标准：
+    - 图片质量 Checklist（背景干净、穿搭清晰、无变形等）
+    - 文案质量 Checklist（标题吸引力、话题标签覆盖等）
+    - 定义"通过/打回"的具体标准
+
+
+【第五步：后续迭代方向】
+
+12. 积累 5-10 篇高质量生成内容，作为面试 Demo 素材
+
+13. 效果数据闭环：
+    - 生成的内容发布到小红书后
+    - 用 PerformanceTracker 追踪互动数据
+    - 根据数据反馈调整 Prompt 和策略
+
+14. 工程师侧：升级爬虫（Playwright/Selenium 替代 requests）
+
+15. 成本优化：后期用 ComfyUI + Flux/SD 自部署替代 ofox API
+
+
+【协作方式（你和工程师）】
+
+16. 各自 git clone 项目
+    git clone https://github.com/uwinding/xiaohongshu-agent.git
+    cd xiaohongshu-agent
+    各自 cp .env.example .env 并填入自己的 Key
+
+17. 日常工作流：
+    git pull            ← 先拉对方的最新改动
+    # 改代码/文档/Prompt
+    git add -A && git commit -m "描述改了啥"
+    git push
+============================================================

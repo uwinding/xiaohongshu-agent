@@ -17,7 +17,7 @@ class LLMClient:
         self.api_key = api_key or settings.llm_api_key
         self.base_url = base_url or settings.llm_base_url
         self.model = model or settings.llm_model
-        self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
+        self.client = OpenAI(api_key=self.api_key, base_url=self.base_url, timeout=60.0)
 
     def chat(
         self,

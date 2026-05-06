@@ -38,8 +38,8 @@ templates.env.cache = None
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request, db=Depends(get_db)):
     posts = db.query(GeneratedPost).order_by(GeneratedPost.created_at.desc()).all()
-    posts_out = [PostOut.model_validate(p).model_dump() for p in posts]
-    return templates.TemplateResponse("index.html", {"request": request, "posts": posts_out})
+    posts_out = [PostOut.model_validate(p).model_dump(mode='json') for p in posts]
+    return templates.TemplateResponse(request=request, name="index.html", context={"posts": posts_out})
 
 
 @app.get("/post/{post_id}", response_class=HTMLResponse)
@@ -47,15 +47,15 @@ def post_detail(post_id: int, request: Request, db=Depends(get_db)):
     post = db.query(GeneratedPost).filter(GeneratedPost.id == post_id).first()
     if not post:
         return HTMLResponse("Post not found", status_code=404)
-    post_out = PostOut.model_validate(post).model_dump()
-    return templates.TemplateResponse("post_detail.html", {"request": request, "post": post_out})
+    post_out = PostOut.model_validate(post).model_dump(mode='json')
+    return templates.TemplateResponse(request=request, name="post_detail.html", context={"post": post_out})
 
 
 @app.get("/trends", response_class=HTMLResponse)
 def trends_page(request: Request, db=Depends(get_db)):
     trends_data = db.query(Trend).order_by(Trend.fetch_date.desc()).limit(50).all()
-    trends_out = [TrendOut.model_validate(t).model_dump() for t in trends_data]
-    return templates.TemplateResponse("trends.html", {"request": request, "trends": trends_out})
+    trends_out = [TrendOut.model_validate(t).model_dump(mode='json') for t in trends_data]
+    return templates.TemplateResponse(request=request, name="trends.html", context={"trends": trends_out})
 
 
 @app.get("/health")
