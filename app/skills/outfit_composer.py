@@ -13,8 +13,8 @@ OUTFIT_COMPOSER_SYSTEM_PROMPT = """你是小红书穿搭搭配专家。根据提
 输出格式:
 {
   "outfit_desc": "中文穿搭描述，100-200字",
-  "pos_prompt": "DALL-E正向生图Prompt，英文，80-150词",
-  "neg_prompt": "DALL-E反向Prompt，英文",
+  "pos_prompt": "英文生图Prompt，80-150词",
+  "neg_prompt": "英文反向Prompt",
   "scene": "场景描述"
 }
 """

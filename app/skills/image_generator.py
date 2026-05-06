@@ -58,7 +58,7 @@ class ImageGenerator(BaseSkill):
                 prompt=prompt,
                 n=1,
                 size="2K",
-                extra_body={"output_format": "png", "watermark": False},
+                extra_body={"watermark": False},
             )
             for img in response.data:
                 if img.url:
