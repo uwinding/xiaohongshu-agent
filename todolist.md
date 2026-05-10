@@ -8,35 +8,29 @@
 
 ### 1. TrendRadar 爬取实现与优化方向
 
-**当前实现**（`app/scraper.py` + `app/skills/trend_radar.py`）：
+**当前实现**（`app/skills/trend_radar.py` + `scripts/comprehensive_analysis.py`）：
 
 ```
-requests.get("https://www.xiaohongshu.com/search_result?keyword=穿搭")
-    → BeautifulSoup CSS 选择器 .note-item/.feeds-page
-    → 提取标题文本
-    → 喂给 LLM 做趋势分析
+离线计算: source_hot_search.csv + source_topic_inc.csv + source_topic_total.csv
+    → comprehensive_analysis.py（三榜合并、生命周期判定、优先级评分、推荐路由）
+    → strategy_full.csv（84个关键词，16维度）
+    → TrendRadar.execute() 读取 CSV → 按博主人设匹配 → 按 recommend_for 分流给下游 Skill
 ```
 
-| 问题 | 根因 | 影响 |
+| 项目 | 状态 | 说明 |
 |------|------|------|
-| 爬虫 100% 返回空 | 小红书是 React SPA + 强反爬（Cookie/滑块验证/JS 混淆），`requests` 根本拿不到搜索页 DOM | TrendRadar 实际上**从未成功获取过数据** |
-| CSS 选择器已失效 | `.note-item`、`.feeds-page` 是旧版小红书类名，当前页面类名完全不同 | 即使绕过反爬也拿不到内容 |
-| 异常被静默吞掉 | `except Exception: return []`，不打印日志 | 问题长期不可见 |
-| TrendRadar 降级返回 "暂无趋势数据" | 设计如此，但让整个 Skill 形同虚设 | Pipeline 中趋势分析完全缺失 |
+| 离线趋势计算 | ✅ 已完成 | `scripts/comprehensive_analysis.py` 从三个源 CSV 生成 `strategy_full.csv` |
+| 源数据外置 | ✅ 已完成 | `data/source_hot_search.csv`、`source_topic_inc.csv`、`source_topic_total.csv` |
+| 生命周期模型 | ✅ 已修复 | 双维度判定（inc_ratio + total_views），对齐设计文档 §4.1 |
+| 路由规则 | ✅ 已修复 | 风格/人群类始终 → OutfitComposer，不受 lifecycle 降级 |
+| ContentWriter 标签 | ✅ 已设计 | topic_tags 包含全维度关键词（风格/人群/选品/标签），不限于"标签"类 |
+| TrendRadar 代码重写 | ⏳ 待实现 | 需改为读取 `strategy_full.csv`，输出 `product_hints` / `style_directions` / `topic_tags` |
+| TrendRadar 接入 Pipeline | ⏳ 待实现 | `pipeline.run()` 中调用 TrendRadar，结果传入下游 Skill |
 
-**优化方向（分阶段）**：
-
-| 阶段 | 方案 | 成本 | 效果 |
-|------|------|------|------|
-| **MVP 本周** | **不爬取。PM 手动整理趋势关键词/热词到 CSV，TrendRadar 读取本地数据** | 零 | 可控、可用 |
-| **V1.5** | 工程师用 Playwright + 注入真实 Cookie（从浏览器导出） | 中 | 可获取真实热门笔记标题，但维护成本高 |
-| **V2.0** | 接入第三方小红书数据 API（如新榜、千瓜） | 需付费 | 稳定可靠 |
-
-> **当前最佳策略**：承认爬虫不可靠，**由 PM 作为领域专家直接充当"趋势雷达"**，整理趋势数据 → 输入 CSV → 工程师让 TrendRadar 从文件读数据。
+> **当前最佳策略**：爬虫已废弃。由 PM 从灰豚数据/千瓜导出三个榜单 → 覆盖 `data/source_*.csv` → 运行 `python scripts/comprehensive_analysis.py` → `strategy_full.csv` 自动更新。
 
 **对应待办**：
-- **PM**：整理 10-20 条当前小红书穿搭热搜词/趋势方向到 `data/trends.csv`（格式：keyword, hot_score, category, date）
-- **工程师**：将 `TrendRadar.execute()` 改为优先读本地 CSV，爬虫作为可选增强；接入 Pipeline 主链路
+- **工程师**：将 `TrendRadar.execute()` 改为读 `strategy_full.csv`，按博主人设匹配输出三流数据；接入 Pipeline 主链路
 
 ---
 
@@ -309,11 +303,14 @@ user_prompt_template: |
 
 #### 4. [修] TrendRadar 接入 Pipeline + 数据来源改造（配合 Q1）
 
+**当前状态**：`strategy_full.csv` 已就绪（84 词，16 维度，recommend_for 路由已修复）。TrendRadar 代码尚未重写。
+
 | 子任务 | 说明 |
 |--------|------|
-| **4a. 改为读本地 CSV** | `TrendRadar.execute()` 优先从 `data/trends.csv` 加载趋势数据；爬虫降级为可选的后备方案 |
-| **4b. 接入 Pipeline** | 在 `pipeline.run()` 的 `[1/5]` 加载 Persona 后调用 `self.trend_radar.execute(style_tags=persona.style_tags)`，趋势结果传入 ProductMatcher/OutfitComposer 上下文 |
-| **4c. 日志改进** | scraper 失败时打印 warning 日志（而非静默吞掉），帮助 PM 感知数据源状态 |
+| **4a. 重写 TrendRadar.execute()** | 从 `data/strategy_full.csv` 加载数据 → 按博主人设 `style_tags` 和 `body_type` 匹配相关行 → 按 `recommend_for` 分流输出 `product_hints` / `style_directions` / `topic_tags` |
+| **4b. 接入 Pipeline** | 在 `pipeline.run()` 的 `[1/5]` 加载 Persona 后调用 `self.trend_radar.execute(persona=...)`，趋势结果传入 ProductMatcher / OutfitComposer / ContentWriter |
+| **4c. ContentWriter 标签策略** | `topic_tags` 包含所有匹配的高优先级关键词（风格/人群/选品各类），不仅限于 `recommend_for="标签"` 的词 |
+| **4d. 清理 scraper.py** | 删除或注释掉失效的爬虫代码，TrendRadar 不再依赖 scraping |
 
 #### 5. [修] ContentWriter 支持 Few-Shot 注入（配合 Q3）
 
@@ -401,7 +398,45 @@ pm/content    — PM Prompt/数据文件分支
 
 ---
 
-## 五、FAQ
+## 五、趋势数据分析现状
+
+### 已完成
+
+| 工作项 | 状态 | 产出物 |
+|--------|------|--------|
+| 三个榜单数据整合（热词/话题增量/话题总量） | ✅ | `scripts/comprehensive_analysis.py` |
+| 源数据外置为可更新 CSV | ✅ | `data/source_hot_search.csv` / `source_topic_inc.csv` / `source_topic_total.csv` |
+| 趋势数据分类与归一化 | ✅ | `data/strategy_full.csv`（84 词） |
+| 趋势生命周期模型（双维度判定） | ✅ | 设计文档 §4.1 |
+| 参与率/竞争度/增量占比指标计算 | ✅ | `strategy_full.csv` |
+| recommend_for 路由修复 | ✅ | 风格/人群类不再因 lifecycle 降级到"标签" |
+| ContentWriter 标签范围扩大 | ✅ | topic_tags 覆盖全维度（风格/人群/选品） |
+| 设计文档 §4.1 TrendRadar 策略更新 | ✅ | 含三流输出结构 + 人设匹配规则 |
+
+### PM 后续需做
+
+| 优先级 | 任务 | 说明 |
+|--------|------|------|
+| P0 | **趋势数据定期更新流程** | 每周从灰豚数据导出三个榜单 → 覆盖 `data/source_*.csv` → 运行 `python scripts/comprehensive_analysis.py` |
+| P0 | **商品库扩充**（3→30+件） | 基于高优先级品类（短袖/连衣裙/裙子/外套/裤子/旗袍）优先上架 |
+| P0 | **新博主人设设计** | 基于增长期风格（通勤/微胖/韩系/氛围感）和人群（梨形/方圆脸）设计对应人设 |
+| P1 | **策略表调参** | 优先级/生命周期/竞争度的权重和阈值目前基于经验设定，需实际跑几轮内容后验证调整 |
+
+### 工程师后续需做
+
+| 优先级 | 任务 | 说明 |
+|--------|------|------|
+| P0 | **TrendRadar 代码重写** | 读取 `strategy_full.csv` → 按博主人设匹配 → 三流输出（product_hints/style_directions/topic_tags） |
+| P0 | **TrendRadar 接入 Pipeline** | `pipeline.run()` 中在加载 Persona 后调用 TrendRadar，结果传入 ProductMatcher/OutfitComposer/ContentWriter |
+| P0 | **Prompt 外置化** | 将 6 个 Skill 的 System Prompt 从 `.py` 抽出到 `prompts/*.yaml` |
+| P0 | **ImageGenerator 升级**（seed/并发/avatar prompt 加载） | 保证博主形象一致性 |
+| P1 | **ContentWriter Few-Shot 注入** | 支持 PM 提供的参考样本注入 |
+| P1 | **Pipeline 声明式配置** | 步骤从 YAML 加载，不硬编码 |
+| P1 | **PerformanceTracker 接入 Pipeline** | 框架就位 |
+
+---
+
+## 六、FAQ
 
 | 问题 | 回答 |
 |------|------|
