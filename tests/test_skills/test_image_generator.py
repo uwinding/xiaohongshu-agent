@@ -18,10 +18,8 @@ def test_generate_images_success(mock_openai_class):
 
     mock_image = MagicMock()
     mock_image.url = "https://example.com/fake-image.png"
-    mock_image2 = MagicMock()
-    mock_image2.url = "https://example.com/fake-image2.png"
     mock_response = MagicMock()
-    mock_response.data = [mock_image, mock_image2]
+    mock_response.data = [mock_image]
     mock_client.images.generate.return_value = mock_response
 
     with patch("app.skills.image_generator.requests.get") as mock_get:

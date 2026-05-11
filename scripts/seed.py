@@ -45,6 +45,7 @@ def seed_products():
                     source_url=row.get("source_url", ""),
                     attributes=json.loads(row.get("attributes", "{}")),
                     images=json.loads(row.get("images", "[]")),
+                    style=row.get("style", ""),
                 )
                 db.add(product)
             db.commit()

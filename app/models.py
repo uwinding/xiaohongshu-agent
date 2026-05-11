@@ -31,6 +31,7 @@ class Product(Base):
     source_url = Column(String(500))
     attributes = Column(JSON, default=dict)
     images = Column(JSON, default=list)
+    style = Column(String(255))
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 

@@ -1,281 +1,193 @@
-# AI 穿搭博主 Agent — 项目进度分析与待办清单
+# AI 穿搭博主 Agent — 待办清单
 
-> 生成时间：2026-05-07　｜　项目状态：MVP 核心工程已完成，内容/策略层需补齐
-
----
-
-## 一、四大核心问题分析与优化策略
-
-### 1. TrendRadar 爬取实现与优化方向
-
-**当前实现**（`app/skills/trend_radar.py` + `scripts/comprehensive_analysis.py`）：
-
-```
-离线计算: source_hot_search.csv + source_topic_inc.csv + source_topic_total.csv
-    → comprehensive_analysis.py（三榜合并、生命周期判定、优先级评分、推荐路由）
-    → strategy_full.csv（84个关键词，16维度）
-    → TrendRadar.execute() 读取 CSV → 按博主人设匹配 → 按 recommend_for 分流给下游 Skill
-```
-
-| 项目 | 状态 | 说明 |
-|------|------|------|
-| 离线趋势计算 | ✅ 已完成 | `scripts/comprehensive_analysis.py` 从三个源 CSV 生成 `strategy_full.csv` |
-| 源数据外置 | ✅ 已完成 | `data/source_hot_search.csv`、`source_topic_inc.csv`、`source_topic_total.csv` |
-| 生命周期模型 | ✅ 已修复 | 双维度判定（inc_ratio + total_views），对齐设计文档 §4.1 |
-| 路由规则 | ✅ 已修复 | 风格/人群类始终 → OutfitComposer，不受 lifecycle 降级 |
-| ContentWriter 标签 | ✅ 已设计 | topic_tags 包含全维度关键词（风格/人群/选品/标签），不限于"标签"类 |
-| TrendRadar 代码重写 | ⏳ 待实现 | 需改为读取 `strategy_full.csv`，输出 `product_hints` / `style_directions` / `topic_tags` |
-| TrendRadar 接入 Pipeline | ⏳ 待实现 | `pipeline.run()` 中调用 TrendRadar，结果传入下游 Skill |
-
-> **当前最佳策略**：爬虫已废弃。由 PM 从灰豚数据/千瓜导出三个榜单 → 覆盖 `data/source_*.csv` → 运行 `python scripts/comprehensive_analysis.py` → `strategy_full.csv` 自动更新。
-
-**对应待办**：
-- **工程师**：将 `TrendRadar.execute()` 改为读 `strategy_full.csv`，按博主人设匹配输出三流数据；接入 Pipeline 主链路
+> 更新：2026-05-11 ｜ 状态：TrendRadar 策略层已完成，工程优化 + PM 内容层待推进
 
 ---
 
-### 2. 虚拟博主形象一致性与生图策略改进
+## 一、已完成
 
-**当前实现**（`app/skills/image_generator.py` + `data/persona.yaml`）：
-
-```
-avatar_desc (纯文本): "圆脸、温柔杏眼、长发微卷、暖白皮、气质优雅、微笑自然"
-    ↓
-_build_prompt(): "Subject: {avatar_desc}. " + outfit_prompt
-    ↓
-Seedream API (text-to-image, 单张生成, 无 seed)
-    ↓
-结果：每一张图的脸都不一样，服装细节不稳定
-```
-
-| 问题 | 根因 | 影响 |
-|------|------|------|
-| **脸部不统一** | 纯文本描述无法保证跨次生成同一张脸 | 同一位博主每次生成的"人"都不同 |
-| **服装不可控** | 靠 Prompt 描述服装，AI 会"自由发挥" | 生成的服装与商品信息不一致 |
-| **未使用 seed 参数** | `_generate_images` 没有传 `seed` | 即使同一 Prompt 多次调用，结果也不同 |
-| **avatar_desc 太简单** | 只有一句中文描述，信息量不足 | Seedream（底层 Flux）的英文 Prompt 能力远强于中文 |
-| **未利用参考图** | Seedream 支持 `image` 参数做图生图参考 | 没有利用 |
-
-**优化策略 - 三步走**：
-
-> 目标：每篇笔记的博主**脸和身材固定**，穿着变化源自商品搭配而非凭空想象。
-
-| 步骤 | 方案 | 产出物 | 负责 |
-|------|------|--------|------|
-| **Step 1: Avatar 精细化** | 为每个人设设计一份详尽的英文 Appearance Prompt（300+ 词），固定：面部特征 / 发型 / 肤色 / 身高体型比例 / 禁用词 / 一致性关键词 | `data/avatar_prompts/{name}.txt` | **PM** 设计文案，工程师提供 Prompt 模板 |
-| **Step 2: 参考图锚定** | 先稳定生图参数（seed、指导权重），然后用一致 Prompt 产出一组同一个人脸的图 | `data/avatar_refs/{name}.png`（参考图像） | **工程师** |
-| **Step 3: 图生图链路** | Pipeline 改为：商品图 + 博主人设 → 参考图上叠加穿搭（图生图 / ControlNet / IP-Adapter） | 新的 `ImageGenerator` 逻辑 | **工程师** |
-
-**Seedream 可用能力**（当前 API 已在用但未充分利用）：
-
-- `seed` 参数 — 同 seed 同 prompt → 高度相似的结果
-- `size` 参数 — 已用 "2K"，但可固定为具体比例 "1024x1536"（小红书竖图）
-- `extra_body` 中的风格控制参数
-- 可用 **group generation** 或 **batch** 模式并发生成多张
-
-**生图流程重构**：
-
-```
-当前：Prompt 拼接 → 单张 API 调用 → 下载
-改进：
-1. 加载 Avatar Prompt（精细英文描述）+ seed 值
-2. 组合穿搭商品描述，描述每件衣服的具体外观
-3. 调用 Seedream，n=3, seed=固定值, 竖图尺寸
-4. 跑一次后在 DB 保存 seed -> 同一博主后续全用这个 seed
-5. 可选：多生成几张（5-8张），让 PM 挑选最好的 3 张
-```
-
-**对应待办**：
-- **PM**：为每个人设撰写详尽的英文 Avatar Prompt（需包含：面部特征/发型/肤色/身高/体型/风格关键词/neg prompt），筛选或描述参考图
-- **工程师**：生成流程升级 — 支持 seed 持久化、竖图尺寸固定、人设 Prompt 模板加载、并发批量生成
-
----
-
-### 3. ContentWriter 文案改进
-
-**当前实现**（`app/skills/content_writer.py`）：
-
-```
-SYSTEM_PROMPT 关键词：
-  "姐妹们" "绝绝子" "冲" "闭眼入" "氛围感" "谁穿谁好看"
-  口语化、亲切感、像闺蜜推荐、emoji点缀
-```
-
-| 问题 | 根因 | 影响 |
-|------|------|------|
-| **用词过时** | 这些词是 2023 年左右小红书爆款的典型特征，当前（2024-2025）已被用户反感 | 文本一眼假，像 AI 写的"假博主" |
-| **广告味太重** | 默认套路："这不得冲？""谁穿谁好看""闭眼入" | 用户天然排斥硬广口吻 |
-| **无人设差异** | 不管是大码博主还是小个子博主，语气差不多 | 缺乏人格化 |
-| **没有真实参考样本** | Prompt 里只有通用指令，没有注入真实优质笔记风格 | 生成内容 AI 味浓，缺乏真人感 |
-| **零 shot** | 直接丢 JSON 商品数据，没有 few-shot 示例 | 输出格式和风格不稳定 |
-
-**2024-2025 小红书文案趋势特征**：
-
-- 去"营销号化"：不用浮夸语气，更偏向**真实分享**、个人体验
-- 信息密度高：单篇包含多个知识点 / 避坑点
-- "反焦虑"叙事：不制造身材焦虑，强调"不同身材都能穿"
-- 结构清晰：正文分点列 Tips + 结尾互动引导
-- 封面标题公式已变：从 "绝绝子这穿搭绝了" → "大码女生通勤穿搭|一衣多穿5天不重样"
-
-**优化策略**：
-
-| 方向 | 做法 | 负责 |
-|------|------|------|
-| **抓取真实参考样本** | PM 在小红书找 10-20 篇同赛道高质量笔记，提炼文案结构、常用话术、标题公式 | **PM** |
-| **构建 Few-Shot Prompt** | 将 3-5 篇参考样本接入 ContentWriter 的 System Prompt（脱敏 + 结构化） | **PM** 提供样本，**工程师** 实现注入 |
-| **人设差异化 Prompt** | 每个人设一套独立的 ContentWriter Prompt，固化口吻差异 | **PM** |
-| **追加"反 AI 味"规则** | System Prompt 中明令禁止某些 AI 高频词，要求更像真人 | **PM** |
-| **文案模板库** | 为常见场景（新品测评/一衣多穿/避坑指南）预设计文风模板 | **PM** 设计，**工程师** 实现模板选择 |
-
-**对应待办**：
-- **PM**：制定文案改进策略（见上表 4 个方向的具体内容）
-- **工程师**：ContentWriter 支持 few-shot 注入 + 人设专属 Prompt 文件加载 + 模板选择机制
-
----
-
-### 4. 工程架构优化建议
-
-**当前架构评估**（整体设计良好，以下为改进建议，非必须推翻重做）：
-
-```
-app/
-├── skills/              # 6 个 Skill，每个独立可测 ✅
-├── pipeline.py          # 串联编排 ✅
-├── routes/              # API 层 ✅
-└── llm_client.py        # LLM 封装 ✅
-```
-
-| 维度 | 当前 | 建议 | 理由 |
-|------|------|------|------|
-| **架构风格** | Skill + Pipeline | **保持现状**，不做大的架构变动 | 模块化很好，符合 Ribbi 对标意图，MVP 阶段过度重构是浪费 |
-| **Prompt 管理** | 硬编码在 `.py` 文件中 | **外置到 `prompts/` 目录**（YAML/TOML） | PM 改 Prompt 不需要懂 Python，不需要改代码 |
-| **Skill 注册** | `pipeline.py` 手动 `import` + 手动初始化 | 可选：添加 `SkillRegistry` 装饰器模式 | 当前只有 6 个 Skill，手动注册够用；扩展时再做 |
-| **Pipeline 编排** | 硬编码的 5 步顺序执行 | 可考虑**声明式 Pipeline**（YAML 定义步骤和执行顺序） | 方便 PM 调整流程（如加 Step、调顺序） |
-| **生图流程** | 单线程逐个生成 | 改为**并发批量** | 3 张图逐张等 30 秒 → 并发 3 次一起等 30 秒 |
-| **配置管理** | `.env` + pydantic-settings | 保持，增加 `config/prompts.yaml` 集中管理 Prompt 路径 | 避免配置散落 |
-
-**架构演进路线（建议）**：
-
-```
-本周 (MVP):  保持现有架构，只做「Prompt 外置」+「ImageGenerator 升级」
-V1.5:        Pipeline 声明式配置 + Skill 注册表 + 并发生图
-V2.0:        如果 Skill 数量 > 10，考虑引入 DAG 编排（Airflow/Prefect 太重，用简单 DAG）
-```
-
-**不推荐做的事**：
-- 不引入 LangChain / LlamaIndex（太重）
-- 不引入消息队列（MVP 不需要异步分发）
-- 不拆分成前后端分离项目（管理后台用 Jinja2 够用）
-- 不引入向量数据库 / RAG（会偏离"Skill 模块化"的设计亮点）
-
-> **一句话总结**：当前架构作为 MVP 足够优秀，不要为了"看起来复杂"而做工程上的过度设计。唯一必须改的是 **Prompt 外置**（让 PM 能独立迭代 Prompt）。
-
-**对应待办**：
-- **工程师**：将 6 个 Skill 的 System Prompt 从 `.py` 抽到 `prompts/*.yaml`，Pipeline 从 YAML 加载
-- **工程师**：ImageGenerator 改为并发生成
-- **工程师**：Pipeline 支持声明式配置（YAML 定义步骤列表，不写死）
-- **PM**：无独立架构任务，专注 Prompt 内容
+| 工作项 | 产出 |
+|--------|------|
+| strategy_full.csv 数据处理修复（6 个 Bug） | `scripts/comprehensive_analysis.py` |
+| 生命周期双维度判定 + 优先级调优 | 高优 1→7, 中优 16→21 |
+| recommend_for 路由修复（风格/人群不降级） | 风格路由 20→43 |
+| 源数据外置为 3 个可更新 CSV | `data/source_*.csv` |
+| TrendRadar 重写（读 CSV → 三流输出） | `app/skills/trend_radar.py` |
+| Pipeline 六步流程（TrendRadar 接入主链路） | `app/pipeline.py` |
+| ProductMatcher 三层匹配（品类×风格×体型） | `app/skills/product_matcher.py` |
+| OutfitComposer 趋势风格驱动 | `app/skills/outfit_composer.py` |
+| ImageGenerator SKU 级保真（img2img + seed） | `app/skills/image_generator.py` |
+| ContentWriter 全维度标签（topic_tags） | `app/skills/content_writer.py` |
+| Product 模型新增 style 字段 | `app/models.py` + `data/products.csv` |
+| 设计文档全面更新 | `AI穿搭博主Agent-项目设计文档.md` |
+| 全部测试通过 | 33/33 |
 
 ---
 
 ## 二、产品经理待办
 
-### P0 — 本周必须完成
+### P0 — 本周
 
-#### 1. 人设 Avatar Prompt 精细化（配合 Q2 生图策略）
+#### 1. 商品库扩充（3 → 30+ 件）
 
-为每个虚拟博主产出一份详尽的英文 Appearance Prompt 文件，确保生图时面容和身材一致。
+编辑 `data/products.csv`，必填字段：
 
-**模板参考**（工程师提供 Prompt 模板结构）：
+| 字段 | 说明 | 示例 |
+|------|------|------|
+| name | 商品名称 | `"高腰A字西装裙 通勤显瘦"` |
+| category | 品类 | `裙装 / 裤装 / 上衣 / 外套 / 配饰` |
+| price | 价格 | `199` |
+| brand | 品牌 | `"某品牌"` |
+| size_available | 可选尺码 | `"XL-4XL"` |
+| source_url | 商品链接 | `https://...` |
+| attributes | JSON | `{"color":"黑色","fabric":"西装料","fit":"A字"}` |
+| style | 风格标签 | `"通勤/职场"` `"法式/田园"` `"温柔/韩系"` |
+| images | JSON 数组 | `["https://img.example.com/1.jpg","..."]` |
+
+**参考选品方向**（基于 strategy_full 高优品类）：裙子/短袖/连衣裙/外套/裤子/旗袍
+
+**覆盖要求**：上装 8-10 / 下装 6-8 / 连衣裙 6-8 / 外套 4-6 / 配饰 4-6
+
+**style 标签填写规范**：必须与 TrendRadar 的趋势方向对齐：
+
+| 趋势方向 | style 应填值 | 适用商品 |
+|---------|-------------|---------|
+| 通勤穿搭 | `通勤/职场` | 西装裤、衬衫、一步裙、西装外套 |
+| 温柔穿搭 | `温柔/女性化` | 针织衫、蕾丝上衣、A字裙、雪纺衫 |
+| 高级感穿搭 | `高级感/简约` | 真丝衬衫、羊绒衫、缎面裙 |
+| 韩系穿搭 | `韩系` | 宽松卫衣、直筒裤、格纹裙 |
+| 法式优雅 | `法式` | 碎花裙、条纹衫、茶歇裙 |
+| 休闲穿搭 | `休闲/街头` | 牛仔裤、T恤、运动鞋、卫衣 |
+| 新中式 | `中式/国风` | 旗袍、汉服改良款、盘扣上衣 |
+| 显瘦穿搭 | `显瘦/遮肉` | 深色阔腿裤、A字裙、V领上衣 |
+
+> 一个商品可以有多个风格，用 `/` 分隔。商品图(images)是 ImageGenerator 图生图的参考输入，**必须上传真实商品白底图**。
+
+#### 2. 博主形象一致性 — 英文 Avatar Prompt + 面部参考图
+
+**当前问题**：`avatar_desc: "圆脸、温柔杏眼、长发微卷、暖白皮、气质优雅、微笑自然"` 仅 16 个中文字，Seedream 底层是英文模型，中文效果差；seed 相同只能让输出"相似"不能保证"同一张脸"。
+
+**解决路径**：英文精细 Prompt → 批量生成 → 人工挑选 → 面部参考图锚定。
+
+| 步骤 | 负责 | 产出物 | 说明 |
+|------|------|--------|------|
+| 1. 写英文 Avatar Prompt | PM | `data/avatar_prompts/xiaolu_xuejie.txt` | 300+ 词，含面部/发型/肤色/体型/表情/禁止项 |
+| 2. 批量生成候选图 | 工程师 | 20+ 张候选图 | 纯文生图，固定 seed，变化 prompt 微调 |
+| 3. 挑选最佳面部 | PM | `data/avatar_refs/xiaolu_xuejie.png` | 从 20+ 张中选一张最符合人设的 |
+| 4. 面部锚定生图 | 工程师 | ImageGenerator 双参考图模式 | 面部参考图 + 商品参考图同时传入 Seedream |
+
+**Avatar Prompt 模板**（英文，需覆盖以下维度）：
+
 ```
-Subject: A [age_range] Chinese female fashion blogger, [body_type] body type,
-height [height]cm, [face_shape], [eye_shape] warm brown eyes, [hair_style],
-[skin_tone] skin, [expression], [posture_description].
+Subject: A 25-30 year old Chinese female fashion blogger.
+Face: round face shape, soft warm brown almond-shaped eyes with gentle epicanthic fold,
+  straight nose with rounded tip, medium-full lips with defined cupid's bow,
+  soft jawline, slight double chin (natural for plus-size face).
+Hair: long dark brown hair, loose natural waves, center part, soft volume,
+  falling past shoulders to mid-back.
+Skin: Fitzpatrick type III, warm undertone, clear complexion, natural dewy finish.
+Body: 165cm, plus-size (XL-2XL), pear-shaped silhouette, fuller arms and thighs,
+  wider hips, defined waist, confident posture.
+Expression: warm gentle smile, approachable, relaxed, natural eye contact with camera.
+Style: elegant French-inspired fashion, sophisticated yet accessible.
 
-She wears: {outfit_description}.
+Photography: full-body shot, natural daylight, urban street or cafe background,
+  fashion blogger OOTD aesthetic, 1024x1536 portrait, high-definition.
 
-Photography: full-body shot, front-facing, natural daylight, urban street
-background, high-definition, Xiaohongshu OOTD style, 1024x1536 aspect ratio.
-
-Negative: distorted face, extra limbs, deformed hands, wrong proportions,
-blurry, low quality, distorted clothing, different person, inconsistent face.
+Negative: skinny, thin face, sharp jawline, different person, inconsistent face,
+  deformed hands, extra fingers, extra limbs, distorted body proportions,
+  blurry, low quality, overexposed, western facial features, heavy makeup.
 ```
 
-**产出物**：`data/avatar_prompts/` 目录下，每个人设一个 `.txt` 文件
-- `xiaolu_xuejie.txt`（小鹿学姐，大码，目前已有人设）
-- `mimi_jiejie.txt`（小个子博主，待新增人设）
-- `pingjia_xuesheng.txt`（学生党博主，待新增人设）
+#### 3. 趋势数据定期更新
 
-#### 2. 文案体系重构（配合 Q3）
+**流程**：每周从灰豚数据/千瓜导出三个榜单 → 覆盖 `data/source_*.csv` → 运行 `python scripts/comprehensive_analysis.py` → `strategy_full.csv` 自动更新。
 
-| 子任务 | 说明 | 产出物 |
-|--------|------|--------|
-| **2a. 收集真实参考样本** | 在小红书搜 "大码穿搭" "小个子穿搭" "通勤穿搭" 各找 5-10 篇高赞笔记，截取标题+正文。注意选**非广告**、**文案自然**、**互动高**的 | `data/reference_posts/` 目录下的样本集 |
-| **2b. 提炼文案特征** | 分析样本共性：标题结构（几字？用不用emoji？）、正文开头/结尾套路、分段方式、话题标签组合规律 | `docs/content_style_guide.md` |
-| **2c. 重新设计 System Prompt** | 基于样本结论，为每个 ContentWriter 的 System Prompt 注入"反 AI 味"规则和新文案标准 | 新版 Prompt（先在笔记里写好，再由工程师接入） |
-| **2d. 定义禁用词清单** | 列出禁止出现的 AI 高频词：绝绝子/闭眼入/冲冲冲/谁穿谁好看/尊嘟假嘟 等 | `data/banned_words.txt` |
+**三个源文件**：
 
-#### 3. 商品库扩充（3 → 30+ 件）
+#### 4. ContentWriter 文案风格采集与分析
 
-编辑 `data/products.csv`，覆盖：上装 8-10 / 下装 6-8 / 连衣裙 6-8 / 外套 4-6 / 配饰 4-6
+**当前问题**：生成的文案 AI 味重，"姐妹们""绝绝子""闭眼入"等词已过时，广告感强。需要从真实小红书笔记中学习当前流行的文案风格。
 
-每件必填：name, category, price, brand, size_available, source_url, attributes(JSON: fit/color/fabric/style)
+**目标**：抓取特定赛道高赞博主笔记 → 提炼文案特征 → 构建 Few-shot → 模型模仿真人风格。
 
-**参考选品方向**：淘宝/拼多多大码女装热销款、小红书爆款同款
+**采集策略**：
+
+| 赛道 | 搜索关键词 | 采集数量 | 筛选标准 |
+|------|-----------|---------|---------|
+| 大码穿搭 | `大码穿搭` `微胖显瘦` `微胖女生穿搭` | 20 篇 | 点赞 > 500，非纯广告，文案有真实分享感 |
+| 小个子穿搭 | `小个子穿搭` `155cm穿搭` `小个子显高` | 20 篇 | 同上 |
+| 通勤穿搭 | `通勤穿搭` `职场穿搭` `上班穿什么` | 20 篇 | 同上 |
+| 法式穿搭 | `法式穿搭` `法式优雅` `氛围感穿搭` | 10 篇 | 同上 |
+| 韩系穿搭 | `韩系穿搭` `韩系简约` `ins风穿搭` | 10 篇 | 同上 |
+
+**提炼维度**：
+
+| 维度 | 需要分析的内容 |
+|------|--------------|
+| 标题公式 | 标题长度/是否用 emoji/数字占比/疑问句 vs 陈述句/常用模板 |
+| 正文结构 | 开头句式(最常用的 3 种)/正文分段方式/结尾互动话术 |
+| 高频词 | 当前真实博主常用的词（不是"绝绝子"那种 2023 年 AI 味词） |
+| 标签组合 | 每篇带几个标签/标签类别比例（风格:人群:品类:泛流量） |
+| 人设差异 | 大码博主 vs 小个子博主的语气差异（用词/态度/互动方式） |
+| AI 味特征 | 过度使用哪些句式会暴露 AI 生成（如"这不得冲？""谁懂啊"） |
+
+**产出物**：
+
+| 序号 | 产出物 | 说明 |
+|------|--------|------|
+| 1 | `data/reference_posts/赛道名/` | 原始笔记（截图或复制文本） |
+| 2 | `docs/content_style_guide.md` | 文案特征提炼 + 标题公式库 |
+| 3 | `data/banned_words.txt` | AI 高频禁用词清单 |
+| 4 | `docs/few_shot_examples.md` | 3-5 篇精选样本，结构化后作为 Few-shot |
+
+**采集方式**：
+
+| 方式 | 依赖 | 说明 |
+|------|------|------|
+| PM 手动复制 | 无 | 直接在小红书 App/Web 搜索 → 复制高赞笔记正文 → 粘贴到文件 |
+| 工程师爬虫 | Playwright/DP | 自动化采集（见 §四 爬虫优化方向） |
+
+#### 5. 内容质量标准文档
+
+图片质量 Checklist / 文案质量 Checklist / 穿搭合理性 Checklist / 通过/驳回标准
 
 ### P1 — 下周
 
-#### 4. 新增 2-3 个博主人设
+#### 6. 新博主人设设计
 
-基于当前 `data/persona.yaml` 小鹿学姐的模板格式，新增：
+在 `data/persona.yaml` 基础上新增 2 个人设：
 
-| 人设名 | 体型 | 风格 | 统一 Avatar Prompt |
-|--------|------|------|-------------------|
-| 小鹿学姐（已有） | 大码 XL-2XL | 法式优雅/通勤 | 见 P0-1 |
-| 米米姐姐（新） | 小个子 153cm | 韩系/甜美/显高 | 见 P0-1 |
-| 七七学姐（新） | 标准微胖 | 平价学生/休闲 | 见 P0-1 |
+| 人设 | 体型 | 风格 | 对标人群 |
+|------|------|------|---------|
+| 小鹿学姐（已有） | 大码 XL-2XL | 法式/通勤/温柔 | 微胖职场女性 |
+| 米米姐姐（新） | 小个子 153cm | 韩系/甜美/显高 | 小个子学生/职场 |
+| 七七学姐（新） | 标准微胖 | 平价/休闲/国潮 | 学生党/预算有限 |
 
-#### 5. 趋势数据手动整理
+每位人设需包含：style_tags(3-5个)、tone_of_voice、avatar_desc(英文 300+ 词，见 Avatar Prompt 模板)、content_focus、avoid_tags、面部参考图
 
-在小红书搜穿搭相关热搜词 → 整理为 `data/trends.csv`
-格式：`keyword, hot_score(1-10), category, date`
-支持：TrendRadar 直接读此文件替代爬虫。
+#### 7. 积累 5-10 篇高质量 Demo，准备面试汇报
 
-#### 6. 内容质量标准文档
-
-定义：图片质量 Checklist / 文案质量 Checklist / 穿搭合理性 Checklist / 通过/驳回标准
-
-### P2 — 后续
-
-#### 7. 积累 5-10 篇高质量 Demo 内容，准备面试汇报材料
+汇总内容：趋势分析报告 + 商品匹配结果 + 穿搭方案 + 生成图片 + 文案 + 数据追踪模拟
 
 ---
 
 ## 三、工程师待办
 
-### P0 — 本周必须完成
+### P0 — 本周
 
-#### 1. [修] 修复 ImageGenerator 测试失败
-
-**文件**：`tests/test_skills/test_image_generator.py`
-**根因**：`_generate_images()` 循环逻辑导致实际生成 4 张而非 2 张
-**方案**：修正 `_generate_images()` 逻辑，改为 `for i in range(num):` 只生成 `num` 张，确保代码行为正确。
-
-#### 2. [增] 生图链路升级（配合 Q2）
+#### 1. ImageGenerator 博主面部一致性
 
 | 子任务 | 说明 |
 |--------|------|
-| **2a. Seed 持久化** | 为每个人设在 `BloggerPersona` 表加 `seed` 字段，第一次生成后保存 seed，后续复用。确保同一个人设跨次生成 face 一致 |
-| **2b. Avatar Prompt 外置加载** | `ImageGenerator` 从 `data/avatar_prompts/{persona_name}.txt` 加载精细英文 Prompt，替代当前简单的 `avatar_desc` 拼接 |
-| **2c. 尺寸固定** | 生图 `size` 固定为 `"1024x1536"`（小红书竖图比例），不再用通配 `"2K"` |
-| **2d. 并发批量生成** | `_generate_images()` 改为并发调用（`asyncio.gather` 或 `concurrent.futures`），3 张图并发等待而非逐张等 30 秒 |
-| **2e. 过多生成供挑选** | 支持 `num_images=N` 参数，实际生成 `N*2` 张（或 `N, max(N*2, 5)`），让 PM 手动筛选最好的保留 |
+| **1a. 面部参考图模式** | 在 Persona 或 config 中增加 `avatar_ref` 图片路径；ImageGenerator 将 `avatar_ref` 作为 img2img 参考传入 Seedream（与商品图 `reference_images` 区分通道） |
+| **1b. 双参考图策略** | 如果 Seedream 支持多参考图 → 面部图 + 商品图同时传入；如果不支持 → 优先用面部参考图 + Prompt 详细描述服装 |
+| **1c. Avatar Prompt 加载** | `ImageGenerator._build_prompt()` 改为从 `data/avatar_prompts/{persona_name}.txt` 加载英文精细 Prompt，替代当前的 `avatar_desc` 简单拼接 |
 
-#### 3. [修] Prompt 外置化（配合 Q4 架构优化）
+#### 2. Prompt 外置化
 
-**核心改动**：将所有 Skill 的 System Prompt 从 `.py` 常量中移到 `prompts/` 目录下的 YAML 文件。
+将所有 Skill 的 System Prompt 从 `.py` 常量移到 `prompts/` 目录 YAML 文件。
 
-**目录结构**：
 ```
 prompts/
 ├── trend_radar.yaml
@@ -286,164 +198,176 @@ prompts/
 └── performance_tracker.yaml
 ```
 
-**YAML 格式**：
+YAML 格式：
 ```yaml
-name: content_writer
+name: product_matcher
 system_prompt: |
-  你是小红书穿搭文案写手...
+  你是小红书穿搭商品匹配专家...
 user_prompt_template: |
-  请根据以下信息生成一篇小红书穿搭笔记...
-  ...
+  请根据以下信息匹配...
 ```
 
-**实现要点**：
-- 每个 Skill 的 `__init__` 或 `execute` 时从对应 YAML 加载
-- 支持环境变量或配置文件指定 prompts 目录路径
-- 保持向后兼容：YAML 不存在时回退到代码中的默认 Prompt
+实现要点：
+- 每个 Skill `__init__` 时从对应 YAML 加载
+- YAML 不存在时回退到代码中的默认 Prompt
+- 支持环境变量指定 prompts 目录路径
 
-#### 4. [修] TrendRadar 接入 Pipeline + 数据来源改造（配合 Q1）
+#### 3. ImageGenerator 并发生成
 
-**当前状态**：`strategy_full.csv` 已就绪（84 词，16 维度，recommend_for 路由已修复）。TrendRadar 代码尚未重写。
+当前逐张生成（3 张图串行 = 3×30s），改为 `asyncio.gather` 并发：
 
-| 子任务 | 说明 |
-|--------|------|
-| **4a. 重写 TrendRadar.execute()** | 从 `data/strategy_full.csv` 加载数据 → 按博主人设 `style_tags` 和 `body_type` 匹配相关行 → 按 `recommend_for` 分流输出 `product_hints` / `style_directions` / `topic_tags` |
-| **4b. 接入 Pipeline** | 在 `pipeline.run()` 的 `[1/5]` 加载 Persona 后调用 `self.trend_radar.execute(persona=...)`，趋势结果传入 ProductMatcher / OutfitComposer / ContentWriter |
-| **4c. ContentWriter 标签策略** | `topic_tags` 包含所有匹配的高优先级关键词（风格/人群/选品各类），不仅限于 `recommend_for="标签"` 的词 |
-| **4d. 清理 scraper.py** | 删除或注释掉失效的爬虫代码，TrendRadar 不再依赖 scraping |
+```
+当前：for i in range(3): generate() → 90s
+优化：await asyncio.gather(generate(), generate(), generate()) → 30s
+```
 
-#### 5. [修] ContentWriter 支持 Few-Shot 注入（配合 Q3）
+#### 4. ImageGenerator 过多生成供挑选
 
-| 子任务 | 说明 |
-|--------|------|
-| **5a. 加载参考样本** | ContentWriter 的 System Prompt 支持从 `data/reference_posts/*.txt` 加载 PM 提供的样本，作为 Few-Shot 示例注入（放在 System Prompt 末尾） |
-| **5b. 人设专属 Prompt** | 每个人设支持独立的 `prompts/content_writer_{persona_name}.yaml`，有则用专属版，无则用默认版 |
-| **5c. 禁用词过滤** | 加载 `data/banned_words.txt`，作为 neg_prompt 或后处理过滤词 |
-
-#### 6. [修] docker-compose 环境变量匹配
-
-将 `docker-compose.yml` 中的 `OPENAI_API_KEY`/`OPENAI_BASE_URL` 改为 `LLM_API_KEY`/`LLM_BASE_URL`/`IMAGE_API_KEY`/`IMAGE_BASE_URL`/`IMAGE_MODEL`/`LLM_MODEL`，与 `config.py` 对齐。
+```python
+def execute(num_images=3, ...):
+    generated = await _generate_images(N=max(num_images*2, 5))
+    selected = _pick_best(generated, top_n=num_images)
+    return selected
+```
 
 ### P1 — 下周
 
-#### 7. [修] PerformanceTracker 接入 Pipeline
+#### 5. ContentWriter Few-Shot 注入
 
-在 `pipeline.run()` 生成 Post 后调用 `self.performance_tracker.execute()`。当前 DB 无真实 `PostPerformance` 数据，返回"暂无数据"属正常，接入后框架就位，后续数据进来就能自动分析。
+| 子任务 | 说明 |
+|--------|------|
+| 加载参考样本 | 从 `data/reference_posts/{赛道}/*.txt` 加载 PM 提供的样本，注入 System Prompt 末尾作为 Few-shot |
+| 人设专属 Prompt | 支持 `prompts/content_writer_{persona_name}.yaml`，有则用专属版 |
+| 禁用词过滤 | 加载 `data/banned_words.txt`，作为 System Prompt 内的 neg_prompt 或后处理过滤 |
 
-#### 8. [增] 实现缺失 API 端点
+#### 6. docker-compose 环境变量对齐
 
-- `POST /api/trends/refresh` — 触发 TrendRadar 刷新（读本地 CSV 或跑爬虫）
-- `GET /api/performance/{id}` — 查看单篇效果报告
+`docker-compose.yml` 中 `OPENAI_API_KEY`/`OPENAI_BASE_URL` 改为 `LLM_API_KEY`/`LLM_BASE_URL`/`IMAGE_API_KEY`/`IMAGE_BASE_URL`/`IMAGE_MODEL`/`LLM_MODEL`，与 `config.py` 对齐。
 
-#### 9. [增] Pipeline 声明式配置（配合 Q4）
-
-将 `pipeline.run()` 的硬编码 5 步流程改为从 YAML 配置加载步骤列表：
+#### 7. Pipeline 声明式配置
 
 ```yaml
 # config/pipeline.yaml
 steps:
   - skill: trend_radar
-    params: {style_tags: "{{persona.style_tags}}"}
+    params: {persona_style_tags: "{{persona.style_tags}}"}
   - skill: product_matcher
-    params: {products: "{{products}}", persona: "{{persona}}"}
+    params: {products: "{{products}}", product_hints: "{{step.trend_radar.product_hints}}"}
   - skill: outfit_composer
-    params: {product_set: "{{step.product_matcher.product_set}}", persona: "{{persona}}"}
-  ...
+    params: {style_directions: "{{step.trend_radar.style_directions}}"}
+  - skill: image_generator
+    params: {reference_images: "{{product_images}}", avatar_ref: "{{persona.avatar_ref}}"}
+  - skill: content_writer
+    params: {topic_tags: "{{step.trend_radar.topic_tags}}"}
 ```
 
-#### 10. [增] 爬虫升级
+#### 8. PerformanceTracker 接入 Pipeline
 
-使用 Playwright/DrissionPage 替换 `requests`，或引入 browser-use 自动操控浏览器。
+在 `pipeline.run()` 生成 Post 后调用 `self.performance_tracker.execute()`。当前 DB 无真实 PostPerformance 数据，接入后框架就位。
+
+#### 9. 缺失 API 端点
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | `/api/trends/refresh` | 触发重新读取 strategy_full.csv |
+| GET | `/api/performance/{id}` | 查看单篇效果报告 |
 
 ### P2 — 后续
 
-#### 11. Pipeline 错误处理增强（降级/跳过/重试）
+#### 10. Pipeline 错误处理增强
 
-#### 12. GitHub Actions CI（自动测试 + 覆盖率）
+单步失败降级策略：TrendRadar 失败 → 跳过趋势信号，退化为无趋势模式；ImageGen 失败 → 重试 2 次；其他失败 → 终止 Pipeline
+
+#### 11. GitHub Actions CI
+
+自动测试 + 覆盖率报告
 
 ---
 
-## 四、协作节奏（建议）
+## 四、小红书爬虫优化方向
 
-### 本周冲刺（May 5-11）
+爬虫用于两个场景：(A) 采集博主文案做 Few-shot；(B) 获取实时热搜数据补充 strategy_full。
+
+### 为什么 requests.get() 不可行
+
+| 原因 | 说明 |
+|------|------|
+| React SPA | 小红书搜索页是客户端渲染，HTML 源码几乎是空的，`requests.get()` 拿不到笔记 DOM |
+| 强反爬 | Cookie 验证、滑块验证码、JS 混淆、请求签名（xs/xs-common 等 header） |
+| 动态选择器 | CSS 类名每次构建随机变化，`.note-item` 等旧版选择器早已失效 |
+
+### 优化方案（从易到难）
+
+| 方案 | 技术 | 成本 | 可靠度 | 适用场景 |
+|------|------|------|--------|---------|
+| **A. 浏览器操控** | Playwright / DrissionPage | 中 | 高 | 采集文案做 Few-shot（低频，量小） |
+| **B. 浏览器操控 + Cookie** | Playwright + 从真实浏览器导出 Cookie | 中 | 高 | 同上，绕过登录态 |
+| **C. 第三方数据 API** | 新榜/千瓜/灰豚数据 API | 付费 | 很高 | 趋势数据日常更新（已用 strategy_full 替代） |
+| **D. 手机端抓包** | mitmproxy + iOS/Android 代理 | 高 | 高 | 获取真实 API 返回的 JSON（非 HTML） |
+| **E. RPA 框架** | browser-use / crawlee | 低(封装好) | 中 | 自动化采集，自带反检测 |
+
+### 推荐路线
+
+```
+Phase 1 (当前): 不爬。strategy_full.csv 已满足趋势需求，PM 手动采集文案参考样本
+Phase 2 (ContentWriter): Playwright + Cookie 注入 → 按搜索词批量采集笔记正文
+Phase 3 (实时趋势): 评估第三方 API 成本 → 决定是否接入
+```
+
+### Phase 2 技术要点
+
+```python
+# Playwright 采集小红书搜索页笔记标题+正文+点赞数
+from playwright.sync_api import sync_playwright
+
+def scrape_xhs(keyword: str, count: int = 20) -> list[dict]:
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=False)  # 可能需要非headless
+        context = browser.new_context(
+            storage_state="cookies.json",  # 从浏览器导出
+            viewport={"width": 390, "height": 844},  # 手机尺寸
+            user_agent="Mozilla/5.0 ... Mobile ..."
+        )
+        page = context.new_page()
+        page.goto(f"https://www.xiaohongshu.com/search_result?keyword={keyword}")
+        # 等渲染 + 滚动加载 + 解析
+        ...
+```
+
+**关键注意事项**：
+- Cookie 需要从真实登录的浏览器导出（Chrome DevTools → Application → Cookies → 导出）
+- Cookie 有效期通常 1-3 天，需定期更换
+- 请求频率需模拟真人（间隔 3-5s），否则触发验证码
+- 优先爬笔记**正文文本**，图片和视频暂不下载（降低复杂度和存储成本）
+
+---
+
+## 五、协作节奏
+
+### 本周 (May 12-18)
 
 ```
 PM 侧：
-  Day1-2: Avatar Prompt 撰写（3个人设）+ 小红书样本收集（20篇）
-  Day3-4: 文案风格分析 + 新版 ContentWriter Prompt 草稿
-  Day4-5: 商品库 + 趋势数据录入
+  Day1: 撰写英文 Avatar Prompt（小鹿学姐 300+ 词）
+  Day1-3: 商品库扩充到 30+ 件（含商品白底图 + style 标签）
+  Day2-3: 手动采集大码/通勤赛道高赞笔记 20 篇（做 ContentWriter Few-shot 素材）
+  Day4: 趋势数据三个源 CSV 首次更新
+  Day5: 从批量生图中挑选小鹿学姐面部参考图
 
 工程师侧：
-  Day1: 修复测试 + 环境变量
-  Day2: Prompt 外置化 + Avatar Prompt 加载
-  Day3: ImageGenerator 升级（seed/并发/尺寸）
-  Day4: TrendRadar 接入 Pipeline + CSV 模式
-  Day5: ContentWriter Few-Shot 注入 + 联调 PM 写的新 Prompt
+  Day1: ImageGenerator 面部参考图模式 + 双参考图策略
+  Day2: Prompt 外置化（6 个 Skill 的 YAML）
+  Day3: ImageGenerator 并发 + 过多生成
+  Day4: docker-compose 环境变量对齐
+  Day5: 联调全链路（加 PM 的新 Prompt 和商品跑一次完整 Pipeline）
 ```
-
-### 沟通方式
-
-- 每日 5 分钟同步：各自进度 + 阻塞
-- Prompt 联调：PM 写 Prompt 文本 → 工程师放到文件 → 一起跑生成看结果
-- 每周五验收：跑一次全链路，评审输出质量
 
 ### Git 分支建议
 
 ```
-main          — 稳定，可直接运行
-eng/image-v2  — 工程师生图升级分支
-eng/prompts   — 工程师 Prompt 外置化分支
-pm/content    — PM Prompt/数据文件分支
+main              — 稳定
+eng/image-v2      — ImageGenerator 面部一致性 + 并发
+eng/prompts       — Prompt 外置化
+eng/crawler       — 小红书爬虫
+pm/products       — PM 商品库扩充
 ```
-
----
-
-## 五、趋势数据分析现状
-
-### 已完成
-
-| 工作项 | 状态 | 产出物 |
-|--------|------|--------|
-| 三个榜单数据整合（热词/话题增量/话题总量） | ✅ | `scripts/comprehensive_analysis.py` |
-| 源数据外置为可更新 CSV | ✅ | `data/source_hot_search.csv` / `source_topic_inc.csv` / `source_topic_total.csv` |
-| 趋势数据分类与归一化 | ✅ | `data/strategy_full.csv`（84 词） |
-| 趋势生命周期模型（双维度判定） | ✅ | 设计文档 §4.1 |
-| 参与率/竞争度/增量占比指标计算 | ✅ | `strategy_full.csv` |
-| recommend_for 路由修复 | ✅ | 风格/人群类不再因 lifecycle 降级到"标签" |
-| ContentWriter 标签范围扩大 | ✅ | topic_tags 覆盖全维度（风格/人群/选品） |
-| 设计文档 §4.1 TrendRadar 策略更新 | ✅ | 含三流输出结构 + 人设匹配规则 |
-
-### PM 后续需做
-
-| 优先级 | 任务 | 说明 |
-|--------|------|------|
-| P0 | **趋势数据定期更新流程** | 每周从灰豚数据导出三个榜单 → 覆盖 `data/source_*.csv` → 运行 `python scripts/comprehensive_analysis.py` |
-| P0 | **商品库扩充**（3→30+件） | 基于高优先级品类（短袖/连衣裙/裙子/外套/裤子/旗袍）优先上架 |
-| P0 | **新博主人设设计** | 基于增长期风格（通勤/微胖/韩系/氛围感）和人群（梨形/方圆脸）设计对应人设 |
-| P1 | **策略表调参** | 优先级/生命周期/竞争度的权重和阈值目前基于经验设定，需实际跑几轮内容后验证调整 |
-
-### 工程师后续需做
-
-| 优先级 | 任务 | 说明 |
-|--------|------|------|
-| P0 | **TrendRadar 代码重写** | 读取 `strategy_full.csv` → 按博主人设匹配 → 三流输出（product_hints/style_directions/topic_tags） |
-| P0 | **TrendRadar 接入 Pipeline** | `pipeline.run()` 中在加载 Persona 后调用 TrendRadar，结果传入 ProductMatcher/OutfitComposer/ContentWriter |
-| P0 | **Prompt 外置化** | 将 6 个 Skill 的 System Prompt 从 `.py` 抽出到 `prompts/*.yaml` |
-| P0 | **ImageGenerator 升级**（seed/并发/avatar prompt 加载） | 保证博主形象一致性 |
-| P1 | **ContentWriter Few-Shot 注入** | 支持 PM 提供的参考样本注入 |
-| P1 | **Pipeline 声明式配置** | 步骤从 YAML 加载，不硬编码 |
-| P1 | **PerformanceTracker 接入 Pipeline** | 框架就位 |
-
----
-
-## 六、FAQ
-
-| 问题 | 回答 |
-|------|------|
-| 当前 LLM 模型？ | DeepSeek-v4-flash（opencode.ai） |
-| 当前生图模型？ | doubao-seedream-4-5-251128（火山方舟） |
-| 启动命令？ | `pip install -e ".[dev]" && python scripts/seed.py && uvicorn app.main:app --reload` |
-| 管理后台？ | http://localhost:8000 |
-| API 文档？ | http://localhost:8000/docs |
-| 测试状态？ | 30/31 通过（1 个 ImageGenerator 测试失败） |
-| 设计文档？ | `AI穿搭博主Agent-项目设计文档.md` |

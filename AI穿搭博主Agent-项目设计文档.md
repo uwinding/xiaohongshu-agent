@@ -78,20 +78,61 @@
 
 ## 3. 系统架构总览
 
+### 3.1 Pipeline 6 步流程
+
+```
+[1/6] 加载博主人设 (Persona)
+          │
+[2/6] TrendRadar — 趋势分析
+       │ 读 strategy_full.csv → 按人设匹配 → 三流输出
+       │
+       ├── product_hints ──────────┐
+       ├── style_directions ───────┤
+       └── topic_tags ─────────────┤
+                                    ▼
+[3/6] ProductMatcher — 商品匹配
+       │ 三层匹配：品类趋势 × 风格兼容 × 人设体型
+       │ → 排除风格冲突的商品，优先趋势品类
+       │
+       ▼
+[4/6] OutfitComposer — 穿搭方案生成
+       │ 趋势风格方向驱动，生成 outfit + pos/neg prompt + scene
+       │
+       ▼
+[5/6] ImageGenerator — AI 生图（SKU 级保真）
+       │ 参考商品图(img2img) + 固定 seed + 竖图尺寸(1024x1536)
+       │
+       ▼
+[6/6] ContentWriter — 文案写作
+       │ 穿搭描述 + 商品链接 + topic_tags 热门话题标签
+       │
+       ▼
+  输出：完整穿搭图文 (标题 + 正文 + 3-4张图 + 商品标记 + 话题标签)
+```
+
+### 3.2 Skill 模块总览
+
 ```
 ┌──────────────────────────────────────────────────────────────────┐
 │                       AI 穿搭博主 Agent                           │
 │                                                                   │
+│  ┌──────────────────────────────────────────────────────────┐    │
+│  │                    GenerationPipeline                      │    │
+│  │  1.Load  →  2.TrendRadar  →  3.ProductMatcher             │    │
+│  │         →  4.OutfitComposer  →  5.ImageGenerator           │    │
+│  │         →  6.ContentWriter                                 │    │
+│  └──────────────────────────────────────────────────────────┘    │
+│                                                                   │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐         │
 │  │TrendRadar│  │Product   │  │Outfit    │  │Image     │         │
 │  │ 趋势雷达  │  │Matcher   │  │Composer  │  │Generator │         │
-│  │          │  │ 商品匹配  │  │ 穿搭合成  │  │ 图片生成  │         │
+│  │CSV读取   │  │ 三层匹配  │  │ 风格驱动  │  │图生图保真 │         │
 │  └──────────┘  └──────────┘  └──────────┘  └──────────┘         │
 │                                                                   │
 │  ┌──────────┐  ┌────────────────────────────────────┐            │
 │  │Content   │  │  PerformanceTracker                 │            │
 │  │Writer    │  │  数据追踪 + 反馈优化                  │            │
-│  │ 文案写作  │  └────────────────────────────────────┘            │
+│  │标签多维  │  └────────────────────────────────────┘            │
 │  └──────────┘                                                    │
 │                                                                   │
 ├───────────────────────────────────────────────────────────────────┤
@@ -99,18 +140,20 @@
 ├───────────────────────────────────────────────────────────────────┤
 │          SQLite 存储  │  本地文件系统（图片存储）                    │
 ├───────────────────────────────────────────────────────────────────┤
-│   GPT-4o / Claude (LLM)   │   DALL-E / Gemini (多模态生图)        │
+│  DeepSeek-v4 (LLM)  │  Seedream 4.5 (生图, 支持图生图)          │
 ├───────────────────────────────────────────────────────────────────┤
-│       小红书数据源  │  商品库（淘宝/小红书店铺链接）                 │
+│   离线趋势数据 (strategy_full.csv)  │  商品库 (products.csv)       │
+│   三源CSV → 生成分析 → 84关键词    │  style字段 → 风格过滤        │
 └───────────────────────────────────────────────────────────────────┘
 ```
 
-### 架构设计原则
+### 3.3 架构设计原则
 
-- **模块化**：每个 Skill 独立可测、可替换，类似 Ribbi 的 Skill 系统
+- **趋势驱动**：TrendRadar 输出三流数据（选品/风格/标签），全程引导下游 Skill 决策
+- **风格一致性**：商品 `style` 字段 → ProductMatcher 过滤 → OutfitComposer 创作 → 全链路风格统一
+- **SKU 保真**：商品图作为参考输入 Seedream 图生图，靠近真实商品外观
+- **模块化**：每个 Skill 独立可测、可替换，遵循 BaseSkill 统一接口
 - **轻量化**：MVP 不引入 LangChain 等重框架，纯 Python 函数串联
-- **可观测**：每个 Skill 的输出有标准化日志，便于调试和效果评估
-- **一致性**：虚拟博主人设（Persona）贯穿所有 Skill，保证内容风格统一
 
 ---
 
@@ -220,41 +263,155 @@
 
 ### 4.2 ProductMatcher — 商品匹配
 
-**职责**：输入商品链接或商品库，根据博主人设和趋势数据，推荐搭配商品组合。
+**职责**：三层匹配（品类趋势 × 风格兼容性 × 人设体型），从商品库中为博主筛选最合适的搭配商品组合。
+
+**设计目的**：解决"选出的商品单品无法搭配出趋势风格"的问题。每件服饰单品都有自身的风格属性（如碎花裙=田园风），不能适配所有穿搭方向。通过引入 `style` 字段和三层匹配，确保选出的商品可以用于 OutfitComposer 创作目标风格。
+
+#### 三层匹配模型
+
+```
+输入商品列表
+      │
+      ▼
+第一层：品类趋势匹配（来自 TrendRadar.product_hints）
+  商品品类命中趋势品类（如"裙子"在热搜） → match_score +2
+  商品品类无搜索需求 → match_score -1
+      │
+      ▼
+第二层：风格兼容性匹配（来自 TrendRadar.style_directions）← 新增
+  商品 style 标签与趋势风格方向兼容 → match_score +2
+  商品 style 标签与所有趋势方向冲突 → 排除（硬约束）
+  双重匹配（一个商品适配多个趋势方向）→ match_score +1
+      │
+      ▼
+第三层：人设体型匹配（已有逻辑）
+  版型/尺码/避雷标签 → 硬约束，不满足直接排除
+  大码：A字/直筒/阔腿、V领/方领、深色/纯色、避紧身/横条纹/低腰
+  小个子：高腰线、短款/九分、同色系、避过长/oversized
+      │
+      ▼
+输出：product_set（按 match_score 排序的搭配组合）
+```
+
+#### 数据格式
+
+**商品库新增 `style` 字段**（`data/products.csv`）：
+
+| 字段 | 类型 | 说明 | 示例 |
+|------|------|------|------|
+| style | String | 风格标签，多个用 `/` 分隔 | `"通勤/职场"` `"法式/田园"` `"温柔/韩系"` |
+
+> PM 填写的 style 值需与 TrendRadar 的趋势风格方向对齐，支持模糊匹配。
 
 | 维度 | 描述 |
 |------|------|
-| **输入** | 商品链接/商品CSV、博主人设、可选趋势上下文 |
-| **处理逻辑** | 解析商品属性（品类/颜色/版型/尺码） → LLM 根据人设+体型约束筛选 → 组合上下装+配饰 → 检查搭配合理性 |
-| **输出** | `{ product_set: [{name, url, category, reason}], match_score: float }` |
-| **关键约束** | 大码：优先 A字/直筒/阔腿版型、深色显瘦、V领拉长脖颈；小个子：高腰线、短款、同色系延长视觉 |
-| **PM 交付物** | ProductMatcher System Prompt、体型穿搭规则库、商品匹配示例 |
+| **输入** | 商品列表（含 style）、博主人设、`product_hints`（趋势品类）、`style_directions`（趋势风格） |
+| **处理逻辑** | LLM 在 trend 上下文中执行三层匹配 → 每件商品标注 match_score + trend_bonus + 淘汰理由 |
+| **输出** | `{ product_set: [...], overall_match_score, style_match, trend_alignment: "命中X/Y趋势品类" }` |
+| **PM 交付物** | ProductMatcher System Prompt、商品 style 标签规范、体型穿搭规则库 |
 
 ### 4.3 OutfitComposer — 穿搭合成
 
-**职责**：根据匹配的搭配商品，合成完整穿搭方案，生成用于AI生图的 Prompt。
+**职责**：根据匹配商品、博主人设和趋势风格方向，创作穿搭方案并生成 AI 生图 Prompt。
+
+**设计目的**：替代之前"盲猜"风格的 scene/style 参数。由 TrendRadar 输出的 `style_directions` 驱动穿搭风格选择，确保生成内容的风格紧跟小红书当前趋势。
+
+#### 风格方向选择策略
+
+```
+输入 style_directions
+      │
+      ▼
+优先级排序：
+  1. 竞争度最低的增长期方向（蓝海优先抢占）→ 权重最高
+  2. 与博主原生风格标签重叠的方向 → 权重其次
+  3. 高竞争度的成熟期方向 → 权重最低
+      │
+      ▼
+合成最终方向：
+  趋势方向 × 博主原生标签 × 商品风格
+  例：通勤穿搭(趋势) × 法式优雅(博主) × 温柔系(博主)
+      → "法式通勤温柔系"
+      │
+      ▼
+自动生成 scene：
+  从趋势方向中衍生场景描述
+  通勤 → "高层写字楼走廊/晨光柔和"
+  法式 → "梧桐树下的咖啡馆/暖色调"
+      │
+      ▼
+生成 pos_prompt（英文）：
+  必须包含趋势风格关键词 + 博主一致性描述 + 品类描述
+```
 
 | 维度 | 描述 |
 |------|------|
-| **输入** | 匹配商品组合 `product_set`、博主人设、场景/风格标签 |
-| **处理逻辑** | LLM 基于商品属性 + 体型约束 + 风格标签 → 生成穿搭场景描述 → 转换为生图Prompt（正面描述 + 反向排除） |
-| **输出** | `{ outfit_desc: string, pos_prompt: string, neg_prompt: string, scene: string }` |
-| **生图 Prompt 结构** | `"一位[体型]女性博主，穿着[穿搭描述]，[场景背景]，[光线/氛围]，小红书OOTD风格，全身照/半身照，高清写实 --no 畸形手指, 面部崩坏, 商品变形"` |
-| **PM 交付物** | OutfitComposer System Prompt、Prompt 模板库、优质生图示例集 |
+| **输入** | `product_set`（已过滤风格冲突）、博主人设、`style_directions`（趋势风格方向） |
+| **处理逻辑** | 从 style_directions 中按优先级选 1-2 个方向 → 结合博主原生风格合成 → 自动推导 scene → 生成中英文 Prompt |
+| **输出** | `{ outfit_desc, pos_prompt, neg_prompt, scene, style_direction: "通勤穿搭×温柔穿搭" }` |
+| **PM 交付物** | OutfitComposer System Prompt、风格方向匹配规则、场景模板库 |
 
-### 4.4 ImageGenerator — 图片生成
+### 4.4 ImageGenerator — SKU 级保真图片生成
 
-**职责**：调用多模态大模型 API 生成虚拟博主穿搭图片，保证人设一致性。
+**职责**：调用 Seedream 图生图 API，以商品参考图为输入，生成博主穿着该商品的穿搭照片。保证博主形象一致性（固定 seed）+ 服装接近真实商品外观（img2img）。
+
+**设计目的**：这是项目的核心重点之一。通用文生图模型无法精确还原特定 SKU 的服装细节（花纹、材质、版型）。通过 Seedream 的「参考图 + 文本提示词」能力，商品图作为视觉参考，文本 Prompt 描述穿搭场景和博主形象，结合固定 seed 维持博主面容一致。
+
+#### 图生图流程
+
+```
+商品参考图（来自 products.csv 的 images 字段）
+      │
+      ▼
+_encode_ref_image(): URL/本地路径 → base64 data URL
+      │
+      ▼
+Seedream API:
+  POST images/generations
+  {
+    "model": "doubao-seedream-4-5-251128",
+    "prompt": "A plus-size woman wearing a blue floral dress...",
+    "n": 1,
+    "size": "1024x1536",
+    "image": "data:image/png;base64,...",   ← 参考图
+    "seed": 123456789,                       ← 固定种子（按博主人设）
+    "watermark": false
+  }
+      │
+      ▼
+seed 管理：
+  seed = hash(persona_name) → 同博主多篇笔记复用
+  → 博主面容跨次生成保持一致
+      │
+      ▼
+批量生成：逐张调用（每次 n=1, 保证质量）
+  单篇生成 3-4 张，每张可传不同参考图
+```
+
+#### 三层保真策略
+
+| 层级 | 保真要求 | 实现方式 | 当前可实现 |
+|------|---------|---------|-----------|
+| **风格层** | 画面体现趋势风格方向 | Prompt 写入风格关键词 | ✅ |
+| **品类层** | 品类大致匹配（连衣裙/阔腿裤） | Prompt 描述品类 | ✅ |
+| **SKU 层** | 服装接近真实商品外观 | 参考图 img2img | ✅ Seedream 支持 |
+| **精确层** | 100% 还原 SKU 细节 | LoRA 微调 / 换装模型 | ❌ V2.0 |
+
+#### 降级策略
+
+```
+有参考图 → 图生图模式（img2img + prompt）
+无参考图 → 纯文生图模式（prompt only）
+文生图失败 → 返回错误 + 详细日志
+```
 
 | 维度 | 描述 |
 |------|------|
-| **输入** | `pos_prompt`、`neg_prompt`、博主人设（参考图/描述）、生成数量 |
-| **处理逻辑** | 拼接人设一致性描述 → 调用 DALL-E 3 / Gemini → 下载图片 → 本地存储 → 基础质量检查（分辨率/内容安全） |
-| **输出** | `{ images: [local_path, ...], gen_metadata: {model, time, cost} }` |
-| **一致性策略** | 在 Prompt 中固定博主的面部特征描述、发型、肤色、体型比例；使用种子（seed）参数维持风格一致性 |
-| **成本控制** | 单次生成 3-5 张图，MVP 阶段预估单篇成本 $0.5-1.5 |
-| **PM 交付物** | 生图质量 CheckList、博主形象一致性规范、图片风格参考板 |
-| **工程师实现要点** | DALL-E/Gemini API 封装；图片下载与本地存储；批量生成与重试机制 |
+| **输入** | `pos_prompt`、`neg_prompt`、`persona_avatar`、`reference_images`（商品参考图 URL 列表）、`persona_name`（用于 seed）、`num_images` |
+| **处理逻辑** | 加载首张有效参考图 → 计算 persona seed → 调用 Seedream img2img → 下载图片 → 本地存储 |
+| **输出** | `{ image_paths: [...], num_generated, prompt_used, seed }` |
+| **一致性策略** | seed = hash(persona_name)，同博主可跨次生成同一面容；竖图尺寸 1024x1536 |
+| **工程师实现要点** | OpenAI 兼容 API 通过 `extra_body` 传 `image` 和 `seed`；参考图加载支持 URL + 本地路径 + base64 |
 
 ### 4.5 ContentWriter — 文案写作
 
@@ -287,21 +444,21 @@
 
 | 层 | 选型 | 说明 |
 |---|------|------|
-| **后端框架** | Python 3.11+ / FastAPI | 异步支持好，适合 API 编排，工程师熟悉 |
-| **LLM** | GPT-4o / Claude 3.5 Sonnet | 统一处理文案、穿搭合成、趋势分析 |
-| **图片生成** | DALL-E 3 / Gemini 2.0 Flash | 多模态大模型直出，MVP 不引入 ComfyUI |
-| **数据存储** | SQLite | 轻量零运维，后期可迁移 PostgreSQL |
-| **图片存储** | 本地文件系统 | MVP 够用，按日期/笔记ID 组织目录 |
+| **后端框架** | Python 3.11+ / FastAPI | 异步支持好，适合 API 编排 |
+| **LLM** | DeepSeek-v4-flash (via opencode.ai) | 统一处理文案、穿搭合成、趋势分析 |
+| **图片生成** | doubao-seedream-4-5-251128 (火山方舟) | 支持文生图 + 图生图（img2img），实现 SKU 级保真 |
+| **数据存储** | SQLite (SQLAlchemy ORM) | 轻量零运维，后期可迁移 PostgreSQL |
+| **图片存储** | 本地文件系统 | 按日期目录组织，MVP 够用 |
 | **前端(管理后台)** | FastAPI + Jinja2 模板 | 极简 Web 页面，不引入前后端分离 |
-| **趋势采集** | requests + BeautifulSoup | 轻量爬取小红书搜索页 |
-| **部署** | Docker + docker compose | 一键启动，面试演示友好 |
+| **趋势分析** | 离线计算 (Python 脚本) | 三个源 CSV → comprehensive_analysis.py → strategy_full.csv |
+| **部署** | Docker + docker compose | 一键启动 |
 
 ### 不选用的技术（MVP 阶段）
 
 | 技术 | 不选原因 |
 |------|---------|
 | LangChain / LlamaIndex | 过度工程化，简单函数串联即可 |
-| ComfyUI / Stable Diffusion | 需要 GPU，部署复杂，MVP 用 API 直出 |
+| ComfyUI / Stable Diffusion | 需要 GPU，部署复杂，Seedream API 替代 |
 | Redis / Celery | 不需要异步任务队列，MVP 同步调用即可 |
 | React / Vue 前端 | 管理后台用模板渲染足够 |
 | PostgreSQL | SQLite 对单机 MVP 完全够用 |
@@ -340,7 +497,7 @@
 ┌─────────────────────────────────────────────────────┐
 │                     Product                          │
 │  name, category, price, brand, size_available        │
-│  source_url, attributes{}, images[]                  │
+│  source_url, attributes{}, style, images[]           │
 └─────────────────────────────────────────────────────┘
 
                     ┌──────────────────┐
@@ -353,27 +510,55 @@
 ### 6.2 数据流向
 
 ```
-[外部输入]                      [Agent PipeLine]                       [输出]
+                         ┌──────────────────────────────┐
+                         │  strategy_full.csv (84关键词)  │  ← 离线计算
+                         │  product_hints / style_directions / topic_tags
+                         └──────────────┬───────────────┘
+                                        │
+                                        ▼
+[外部输入]                      [Agent Pipeline — 6步骤]                   [输出]
 
-商品链接 ──┐
-           ├──▶ ProductMatcher ──▶ OutfitComposer ──▶ ImageGenerator ──┐
-小红书热搜 ─┘        │                    │                  │         │
-                     │                    │                  │         │
-              TrendRadar ◀───────────────┘                  │         │
-                                                                       │
-博主人设 ◀────────────────────────────────────────────────────┘         │
-                                                                       │
-                                                                       ▼
-                                                               ContentWriter
-                                                                       │
-                                                                       ▼
-                                                              [人工审核页面]
-                                                                       │
-                                                            发布 ◀─────┘
-                                                                       │
-                                                              PerformanceTracker
-                                                                       │
-                                                              反馈 ◀──┘
+商品库(products.csv) ──┐
+  style + images        │
+                        ├──→ [1] 加载博主
+博主人设(persona.yaml) ─┘        │
+                                  ▼
+                         [2] TrendRadar
+                           │  读 CSV → 按人设匹配
+                           │  输出三流数据
+                           │
+                  ┌────────┼────────┐
+                  │        │        │
+          product_hints  style_    topic_tags
+                  │    directions     │
+                  ▼        │          │
+                         [3] ProductMatcher
+                           │  三层匹配（品类×风格×体型）
+                           │  排除风格冲突商品
+                           ▼
+                         [4] OutfitComposer
+                           │  趋势方向驱动穿搭创作
+                           │  生成 outfit + prompt + scene
+                           ▼
+                    ┌──────┴──────┐
+                    │ 商品参考图    │
+                    ▼              │
+                         [5] ImageGenerator
+                           │  img2img → SKU级保真
+                           │  固定seed → 面容一致
+                           │  竖图1024x1536
+                           ▼
+                         [6] ContentWriter ────────────▶ 小红书图文
+                           │  topic_tags → 多维标签        (标题+正文+图片+商品标记)
+                           │  文字描述精确商品
+                           ▼
+                      [人工审核页面]
+                           │
+                     发布 ◀─┘
+                           │
+                    [PerformanceTracker]
+                           │
+                     反馈优化 ◀──┘
 ```
 
 ### 6.3 主要 API 接口设计
