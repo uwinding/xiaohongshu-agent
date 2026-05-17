@@ -5,22 +5,26 @@
 ## 快速启动
 
 1. 复制环境配置：
+   
    ```bash
    cp .env.example .env
    # 如需真实生图，编辑 .env 填入 IMAGE_API_KEY / IMAGE_BASE_URL / IMAGE_MODEL
    ```
 
 2. 安装依赖：
+   
    ```bash
    pip install -e ".[dev]"
    ```
 
 3. 初始化数据：
+   
    ```bash
    python scripts/seed.py
    ```
 
 4. 启动服务：
+   
    ```bash
    uvicorn app.main:app --reload
    ```
