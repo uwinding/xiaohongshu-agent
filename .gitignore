@@ -26,6 +26,5 @@ build/
 .DS_Store
 Thumbs.db
 storage/images/
-todolist.txt
-lhyNote.txt
-lhyNote.md.txt
+lhy*
+lhynote*
