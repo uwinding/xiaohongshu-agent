@@ -1,12 +1,9 @@
-import csv
-import os
 from app.skills.base import BaseSkill, SkillResult
+from app.trend_sources import TrendSignal, keyword_matches_any, load_trend_signals
 
-_STRATEGY_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "data", "strategy_full.csv")
 
-# 博主人设 → 关键词映射表
 _BODY_TYPE_MAP = {
-    "大码": ["微胖", "显瘦", "梨形", "大码", "胖", "丰满"],
+    "大码": ["微胖", "显瘦", "梨形", "大码", "丰满"],
     "小个子": ["小个子", "显高", "矮个子", "娇小"],
     "标准": [],
 }
@@ -14,38 +11,14 @@ _BODY_TYPE_MAP = {
 _STYLE_ALIAS = {
     "法式": ["法式", "法式优雅", "高级感"],
     "通勤": ["通勤", "职场", "上班", "OL"],
-    "温柔": ["温柔", "知性", "优雅", "女性化"],
+    "温柔": ["温柔", "知性", "优雅"],
     "韩系": ["韩系", "韩剧", "韩国"],
     "甜美": ["甜美", "甜妹", "可爱"],
     "休闲": ["休闲", "日常", "街头", "运动"],
     "国潮": ["国风", "新中式", "中国风", "东方美学"],
-    "平价": ["平价", "学生", "便宜", "性价比"],
+    "平价": ["平价", "学生", "性价比"],
     "辣妹": ["辣妹", "性感", "欧美"],
 }
-
-
-def _match_persona(keyword: str, persona_style_tags: list[str], persona_body_type: str) -> int:
-    """Compute relevance score between a keyword and persona. Higher = more relevant."""
-    score = 0
-    kw_lower = keyword.lower()
-
-    # Body type match
-    body_matches = _BODY_TYPE_MAP.get(persona_body_type, [])
-    for term in body_matches:
-        if term in kw_lower or term in keyword:
-            score += 3
-            break
-
-    # Style tag match
-    for tag in persona_style_tags:
-        tag_lower = tag.lower()
-        aliases = _STYLE_ALIAS.get(tag, [tag])
-        for alias in aliases:
-            if alias in kw_lower or alias in keyword or tag_lower in kw_lower:
-                score += 2
-                break
-
-    return score
 
 
 class TrendRadar(BaseSkill):
@@ -54,58 +27,36 @@ class TrendRadar(BaseSkill):
     def execute(self, persona_style_tags: list[str] | None = None, persona_body_type: str = "", **kwargs) -> SkillResult:
         style_tags = persona_style_tags or kwargs.get("style_tags", [])
         body_type = persona_body_type or kwargs.get("body_type", "")
+        signals = load_trend_signals()
 
-        rows = self._load_strategy_csv()
-        if not rows:
+        if not signals:
             return SkillResult(success=True, data={
-                "product_hints": [], "style_directions": [], "topic_tags": [],
-                "trend_summary": "暂无趋势数据（strategy_full.csv 不存在或为空）"
+                "product_hints": [],
+                "style_directions": [],
+                "topic_tags": [],
+                "trend_summary": "暂无趋势源数据，请写入 data/source_hot_search.csv、data/source_topic_total.csv、data/source_topic_inc.csv",
+                "matched_count": 0,
             })
 
-        # Filter and score
-        matched = []
-        for r in rows:
-            kw = r.get("keyword", "")
-            score = _match_persona(kw, style_tags, body_type)
-            if score > 0:
-                r["_match_score"] = score
-                matched.append(r)
+        ranked = sorted(
+            ((self._persona_score(signal, style_tags, body_type), signal) for signal in signals),
+            key=lambda item: (item[0], item[1].growth_score, item[1].heat_score),
+            reverse=True,
+        )
+        matched = [signal for score, signal in ranked if score > 0]
+        candidate_pool = matched
 
-        # Sort by _match_score desc, then priority
-        pri_order = {"高": 0, "中": 1, "低": 2}
-        matched.sort(key=lambda r: (-r["_match_score"], pri_order.get(r.get("priority", "低"), 3)))
+        product_hints = [self._to_entry(s) for s in candidate_pool if s.category == "品类"][:10]
+        style_directions = [self._to_entry(s) for s in candidate_pool if s.category in {"风格", "场景", "季节", "人群"}][:10]
+        topic_tags = [self._to_entry(s) for s in candidate_pool if s.category != "品类"][:15]
 
-        # Split by recommend_for
-        product_hints = []
-        style_directions = []
-        topic_tags = []
-
-        for r in matched:
-            rf = r.get("recommend_for", "标签")
-            entry = {
-                "keyword": r["keyword"],
-                "priority": r["priority"],
-                "category": r["category"],
-                "lifecycle": r["lifecycle"],
-                "competition": r.get("competition_pct", ""),
-                "inc_ratio": r.get("inc_ratio_pct", ""),
-                "search_index_w": r.get("search_index_w", ""),
-                "is_surging": r.get("is_surging", "") == "1",
-            }
-            if rf == "选品" or rf == "综合":
-                if r["priority"] in ("高", "中"):
-                    product_hints.append(entry)
-            if rf == "风格" or rf == "综合":
-                if r["priority"] in ("高", "中"):
-                    style_directions.append(entry)
-            # topic_tags: all matched keywords, limited to top 15
-            if len(topic_tags) < 15:
-                topic_tags.append(entry)
-
-        # Generate trend summary
-        top_product = product_hints[0]["keyword"] if product_hints else "N/A"
-        top_style = style_directions[0]["keyword"] if style_directions else "N/A"
-        summary = f"趋势分析：选品优先{top_product}等{len(product_hints)}个品类，风格方向推荐{top_style}等{len(style_directions)}个方向，可带{len(topic_tags)}个话题标签"
+        top_product = product_hints[0]["keyword"] if product_hints else "暂无明确品类"
+        top_style = style_directions[0]["keyword"] if style_directions else "暂无明确风格"
+        summary = (
+            f"趋势分析：基于热词榜/话题总量榜/话题增量榜，"
+            f"选品优先{top_product}，内容方向优先{top_style}，"
+            f"可用话题{len(topic_tags)}个。"
+        )
 
         return SkillResult(success=True, data={
             "product_hints": product_hints,
@@ -115,12 +66,33 @@ class TrendRadar(BaseSkill):
             "matched_count": len(matched),
         })
 
-    def _load_strategy_csv(self) -> list[dict]:
-        if not os.path.exists(_STRATEGY_PATH):
-            return []
-        rows = []
-        with open(_STRATEGY_PATH, "r", encoding="utf-8-sig") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                rows.append(row)
-        return rows
+    def _persona_score(self, signal: TrendSignal, style_tags: list[str], body_type: str) -> int:
+        terms = []
+        for tag in style_tags:
+            terms.extend(_STYLE_ALIAS.get(tag, [tag]))
+        terms.extend(_BODY_TYPE_MAP.get(body_type, []))
+        score = 0
+        if keyword_matches_any(signal.keyword, terms):
+            score += 5
+        if score > 0 and (signal.is_surging or signal.inc_views_w > 0):
+            score += 2
+        if score > 0 and signal.search_index_w > 0:
+            score += 1
+        return score
+
+    def _to_entry(self, signal: TrendSignal) -> dict:
+        priority = "高" if signal.growth_score >= 500 or signal.heat_score >= 200 else "中"
+        lifecycle = "增长期" if signal.growth_score > 0 or signal.is_surging else "稳定期"
+        return {
+            "keyword": signal.keyword,
+            "priority": priority,
+            "category": signal.category,
+            "lifecycle": lifecycle,
+            "competition": "",
+            "inc_ratio": "",
+            "search_index_w": signal.search_index_w or "",
+            "total_views_w": signal.total_views_w or "",
+            "inc_views_w": signal.inc_views_w or "",
+            "is_surging": signal.is_surging,
+            "source": signal.source,
+        }

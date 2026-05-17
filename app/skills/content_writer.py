@@ -1,27 +1,4 @@
-import json
 from app.skills.base import BaseSkill, SkillResult
-
-CONTENT_WRITER_SYSTEM_PROMPT = """你是小红书穿搭爆款文案写手。根据穿搭描述、商品信息和当前趋势标签，
-生成一篇吸引人的小红书穿搭笔记。
-
-文案要求:
-- 标题: 15-25字，包含emoji，制造好奇心或实用价值感
-- 正文: 150-300字，口语化、像真人分享而非营销号，像闺蜜推荐
-- 分段清晰，每段2-3句，适度使用emoji点缀
-- 大码博主强调"显瘦""自信""微胖友好"
-- 小个子博主强调"显高""拉长比例""小个子福音"
-- 话题标签: 5-8个，优先从 topic_tags 中选取高优先级的热门标签，
-  覆盖风格标签（如 #高级感穿搭）+ 人群标签（如 #微胖穿搭）+ 品类标签（如 #连衣裙），
-  不局限于单一类别
-
-输出格式:
-{
-  "title": "标题",
-  "content": "正文",
-  "hashtags": ["标签1", "标签2", ...],
-  "product_tags": [{"name": "商品名", "url": "商品链接"}]
-}
-"""
 
 
 class ContentWriter(BaseSkill):
@@ -36,31 +13,78 @@ class ContentWriter(BaseSkill):
         if not outfit_desc:
             return SkillResult(success=False, error="Empty outfit description")
 
-        tags_section = ""
-        if topic_tags:
-            tags_text = "\n".join(
-                f"  - #{d['keyword']}#（{d.get('category','')}类，热度{d.get('priority','中')}）"
-                for d in topic_tags[:15]
-            )
-            tags_section = f"\n当前热门话题标签（从以下选取5-8个，覆盖风格+人群+品类多类）：\n{tags_text}\n"
+        body_type = persona.get("body_type", "标准")
+        style_tags = persona.get("style_tags") or []
+        tone = persona.get("tone_of_voice") or "亲切自然"
+        main_style = style_tags[0] if style_tags else self._first_topic(topic_tags, "风格") or "日常"
+        main_product = self._main_product(products)
+        title = self._title(body_type, main_style, main_product)
+        hashtags = self._hashtags(body_type, style_tags, products, topic_tags)
+        product_tags = [{"name": p.get("name", ""), "url": p.get("source_url", "")} for p in products if p.get("name")]
 
-        user_prompt = f"""请根据以下信息生成一篇小红书穿搭笔记:
+        content = (
+            f"姐妹们，今天这套{main_style}穿搭我会直接存进近期模板里。\n\n"
+            f"{outfit_desc}\n\n"
+            f"我最喜欢的是它没有用力过猛，{self._body_sentence(body_type)}。"
+            f"如果你平时喜欢{tone}的分享方式，这套会很适合做成图文首发。"
+        )
 
-博主口吻: {persona.get('tone_of_voice', '亲切自然')}
-博主体型: {persona.get('body_type', '标准')}
+        return SkillResult(success=True, data={
+            "title": title,
+            "content": content,
+            "hashtags": hashtags,
+            "product_tags": product_tags,
+        })
 
-穿搭描述:
-{outfit_desc}
+    def _title(self, body_type: str, style: str, product: str) -> str:
+        if body_type == "大码":
+            return f"大码姐妹试试这套{style}{product}，显瘦很自然"
+        if body_type == "小个子":
+            return f"小个子这套{style}{product}，比例直接拉高"
+        return f"这套{style}{product}，日常也能很出片"
 
-关联商品:
-{json.dumps(products, ensure_ascii=False, indent=2)}
-{tags_section}
-话题标签选取规则:
-1. 优先使用 topic_tags 中"高"热度标签
-2. 必须覆盖风格类+人群类+品类类标签（不限于单一类别）
-3. 如果 topic_tags 为空，根据正文自行生成标签
+    def _body_sentence(self, body_type: str) -> str:
+        if body_type == "大码":
+            return "对微胖身材的腰腹和胯部都比较友好，拍照也不容易显局促"
+        if body_type == "小个子":
+            return "高腰线和利落轮廓能把比例向上带，显高效果很直观"
+        return "线条干净、层次明确，日常照着穿不容易出错"
 
-请输出JSON格式的小红书笔记内容。"""
+    def _hashtags(self, body_type: str, style_tags: list[str], products: list[dict], topic_tags: list[dict]) -> list[str]:
+        tags = []
+        for item in topic_tags:
+            keyword = item.get("keyword", "").strip("# ")
+            if keyword and keyword not in tags:
+                tags.append(keyword)
+            if len(tags) >= 4:
+                break
+        for tag in style_tags:
+            value = f"{tag}穿搭" if "穿搭" not in tag else tag
+            if value not in tags:
+                tags.append(value)
+        if body_type == "大码":
+            tags.extend(["大码穿搭", "显瘦穿搭", "微胖穿搭"])
+        elif body_type == "小个子":
+            tags.extend(["小个子穿搭", "显高穿搭"])
+        for product in products[:3]:
+            category = product.get("category") or ""
+            if category and category not in tags:
+                tags.append(category)
+        normalized = []
+        for tag in tags:
+            tag = tag.strip("# ")
+            if tag and tag not in normalized:
+                normalized.append(tag)
+        return normalized[:8]
 
-        result = self._llm_json(CONTENT_WRITER_SYSTEM_PROMPT, user_prompt)
-        return SkillResult(success=True, data=result)
+    def _main_product(self, products: list[dict]) -> str:
+        if not products:
+            return ""
+        product = products[0]
+        return product.get("category") or product.get("name", "")
+
+    def _first_topic(self, topic_tags: list[dict], category: str) -> str:
+        for item in topic_tags:
+            if item.get("category") == category:
+                return item.get("keyword", "")
+        return ""

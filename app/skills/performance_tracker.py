@@ -1,18 +1,6 @@
-import json
+from collections import Counter
+
 from app.skills.base import BaseSkill, SkillResult
-
-PERFORMANCE_TRACKER_SYSTEM_PROMPT = """你是小红书内容数据分析师。根据给出的笔记效果数据，
-分析内容表现，并给出优化建议。
-
-输出格式:
-{
-  "performance_summary": "总体表现总结(100字以内)",
-  "best_style": "表现最好的风格/话题",
-  "best_time": "建议最佳发布时间",
-  "optimization_suggestions": ["建议1", "建议2", ...],
-  "metrics_trend": "up|stable|down"
-}
-"""
 
 
 class PerformanceTracker(BaseSkill):
@@ -31,18 +19,42 @@ class PerformanceTracker(BaseSkill):
                 "metrics_trend": "stable",
             })
 
-        perf_json = json.dumps(performances, ensure_ascii=False, indent=2)
-        meta_json = json.dumps(posts_metadata, ensure_ascii=False, indent=2)
+        total_likes = sum(int(p.get("likes") or 0) for p in performances)
+        total_comments = sum(int(p.get("comments") or 0) for p in performances)
+        total_shares = sum(int(p.get("shares") or 0) for p in performances)
+        avg_click = sum(float(p.get("click_rate") or 0) for p in performances) / len(performances)
+        trend = self._trend(performances)
+        best_style = self._best_style(posts_metadata)
 
-        user_prompt = f"""请分析以下穿搭笔记的效果数据:
+        return SkillResult(success=True, data={
+            "performance_summary": f"共{len(performances)}篇笔记，累计赞{total_likes}、评{total_comments}、藏/转{total_shares}，平均点击率{avg_click:.1%}。",
+            "best_style": best_style,
+            "best_time": "优先测试工作日晚8点-10点和周末上午10点",
+            "optimization_suggestions": [
+                "保留互动最高笔记的标题结构和首图构图",
+                "下一轮优先复用表现好的风格标签",
+                "低点击内容先优化封面关键词和前两行正文",
+            ],
+            "metrics_trend": trend,
+        })
 
-笔记效果数据:
-{perf_json}
+    def _trend(self, performances: list[dict]) -> str:
+        if len(performances) < 2:
+            return "stable"
+        first = float(performances[0].get("click_rate") or 0)
+        last = float(performances[-1].get("click_rate") or 0)
+        if last > first * 1.1:
+            return "up"
+        if last < first * 0.9:
+            return "down"
+        return "stable"
 
-笔记元信息:
-{meta_json}
-
-请输出JSON格式的分析结果。"""
-
-        result = self._llm_json(PERFORMANCE_TRACKER_SYSTEM_PROMPT, user_prompt)
-        return SkillResult(success=True, data=result)
+    def _best_style(self, posts_metadata: list[dict]) -> str:
+        counter = Counter()
+        for meta in posts_metadata:
+            for tag in meta.get("style_tags") or meta.get("hashtags") or []:
+                counter[str(tag)] += 1
+        if not counter:
+            return "暂无足够风格数据"
+        style, _ = counter.most_common(1)[0]
+        return f"{style}相关内容出现频次最高，建议继续验证"

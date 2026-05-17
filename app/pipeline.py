@@ -1,4 +1,3 @@
-from app.llm_client import LLMClient
 from app.skills.trend_radar import TrendRadar
 from app.skills.product_matcher import ProductMatcher
 from app.skills.outfit_composer import OutfitComposer
@@ -6,21 +5,33 @@ from app.skills.image_generator import ImageGenerator
 from app.skills.content_writer import ContentWriter
 from app.skills.performance_tracker import PerformanceTracker
 from app.models import BloggerPersona, Product, Outfit, GeneratedPost
-from app.database import get_db
+from app.database import SessionLocal, get_db
 
 
 class GenerationPipeline:
-    def __init__(self, llm_client: LLMClient | None = None):
-        self.llm = llm_client or LLMClient()
-        self.trend_radar = TrendRadar(self.llm)
-        self.product_matcher = ProductMatcher(self.llm)
-        self.outfit_composer = OutfitComposer(self.llm)
-        self.image_generator = ImageGenerator(self.llm)
-        self.content_writer = ContentWriter(self.llm)
-        self.performance_tracker = PerformanceTracker(self.llm)
+    def __init__(self, llm_client=None):
+        self.llm = llm_client
+        self.trend_radar = TrendRadar()
+        self.product_matcher = ProductMatcher()
+        self.outfit_composer = OutfitComposer()
+        self.image_generator = ImageGenerator(llm_client)
+        self.content_writer = ContentWriter()
+        self.performance_tracker = PerformanceTracker()
 
     def run(self, persona_id: int = 1, product_ids: list[int] | None = None, style: str = "", scene: str = "", num_images: int = 1) -> dict:
-        db = next(get_db())
+        db_provider = get_db()
+        db = next(db_provider) if hasattr(db_provider, "__next__") else SessionLocal()
+        try:
+            return self._run_with_db(db, persona_id, product_ids, style, scene, num_images)
+        finally:
+            if hasattr(db_provider, "__next__"):
+                close = getattr(db_provider, "close", None)
+                if close:
+                    close()
+            else:
+                db.close()
+
+    def _run_with_db(self, db, persona_id: int, product_ids: list[int] | None, style: str, scene: str, num_images: int) -> dict:
 
         persona = db.query(BloggerPersona).filter(BloggerPersona.id == persona_id).first()
         if not persona:

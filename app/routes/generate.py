@@ -9,6 +9,6 @@ pipeline = GenerationPipeline()
 
 
 @router.post("/generate", response_model=GenerateResponse)
-def generate_post(req: GenerateRequest, db: Session = Depends(get_db)):
+async def generate_post(req: GenerateRequest, db: Session = Depends(get_db)):
     result = pipeline.run(persona_id=req.persona_id, product_ids=req.product_ids, style=req.style, scene=req.scene, num_images=req.num_images)
     return GenerateResponse(post=PostOut(**result["post"]), outfit=OutfitOut(**result["outfit"]), generated_images=result["images"])

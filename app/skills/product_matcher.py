@@ -1,29 +1,16 @@
 from app.skills.base import BaseSkill, SkillResult
-import json
+from app.trend_sources import keyword_matches_any
 
-PRODUCT_MATCHER_SYSTEM_PROMPT = """你是小红书穿搭商品匹配专家。根据博主人设、趋势信号和待选商品，
-为博主挑选最合适的搭配商品组合。
 
-穿搭约束规则:
-- 大码体型: 优先A字/直筒/阔腿版型，V领/方领，深色/纯色，避免紧身/横条纹/低腰
-- 小个子体型: 优先高腰线设计、短款/九分款、同色系搭配，避免过长/oversized
-- 必须遵守博主的避雷标签，不能推荐避雷标签相关的商品
-
-选品优先级:
-- 品类趋势热度（product_hints 中的品类优先匹配，搜索指数越高权重越大）
-- 风格兼容性（商品 style 标签需与 style_directions 至少一个方向兼容，冲突的排除）
-- 人设匹配度（版型/尺码/避雷硬约束必须满足）
-
-输出格式:
-{
-  "product_set": [
-    {"name": "商品名", "category": "品类", "reason": "推荐理由（须说明贴合的趋势方向+风格兼容性）", "match_score": 8}
-  ],
-  "overall_match_score": 8.5,
-  "style_match": "风格匹配说明",
-  "trend_alignment": "选品命中X/Y趋势品类，风格方向对齐XX/YY"
+_BODY_POSITIVE = {
+    "大码": ["a字", "直筒", "阔腿", "v领", "方领", "高腰", "宽松", "显瘦", "垂坠"],
+    "小个子": ["高腰", "短款", "九分", "收腰", "同色", "显高", "短裙"],
 }
-"""
+
+_BODY_NEGATIVE = {
+    "大码": ["紧身", "包臀", "低腰", "横条纹"],
+    "小个子": ["拖地", "超长", "oversized", "宽大"],
+}
 
 
 class ProductMatcher(BaseSkill):
@@ -36,35 +23,98 @@ class ProductMatcher(BaseSkill):
         style_directions = style_directions or kwargs.get("style_directions", [])
 
         if not products:
-            return SkillResult(success=True, data={"product_set": [], "overall_match_score": 0.0, "style_match": ""})
+            return SkillResult(success=True, data={
+                "product_set": [],
+                "overall_match_score": 0.0,
+                "style_match": "",
+                "trend_alignment": "无可匹配商品",
+            })
 
-        products_json = json.dumps(products, ensure_ascii=False, indent=2)
-        persona_json = json.dumps(persona, ensure_ascii=False, indent=2)
+        scored = []
+        for product in products:
+            score, reasons = self._score_product(product, persona, product_hints, style_directions)
+            if score > 0:
+                item = dict(product)
+                item["match_score"] = min(10, round(score, 1))
+                item["reason"] = "；".join(reasons[:3]) or "基础风格匹配"
+                scored.append(item)
 
-        trend_section = ""
-        if product_hints:
-            hints_text = "\n".join(f"  - {h['keyword']}（搜索指数{h.get('search_index_w','?')}w，{'飙升' if h.get('is_surging') else '稳定'}，优先级{h.get('priority','中')}）" for h in product_hints[:10])
-            trend_section += f"\n当前趋势品类（优先匹配）：\n{hints_text}\n"
+        scored.sort(key=lambda p: p["match_score"], reverse=True)
+        selected = self._pick_balanced_set(scored)
+        avg_score = round(sum(p["match_score"] for p in selected) / len(selected), 1) if selected else 0.0
 
-        if style_directions:
-            dirs_text = "\n".join(f"  - {d['keyword']}（{d.get('lifecycle','')}，竞争度{d.get('competition','?')}%，增占比{d.get('inc_ratio','?')}%）" for d in style_directions[:10])
-            trend_section += f"\n当前趋势风格方向（商品 style 标签需与至少一个方向兼容，冲突的排除）：\n{dirs_text}\n"
+        hit_trends = self._hit_keywords(selected, product_hints)
+        hit_styles = self._hit_keywords(selected, style_directions, include_style=True)
 
-        user_prompt = f"""请根据以下信息匹配最适合的商品:
+        return SkillResult(success=True, data={
+            "product_set": selected,
+            "overall_match_score": avg_score,
+            "style_match": "、".join(hit_styles) if hit_styles else "按博主人设风格进行基础匹配",
+            "trend_alignment": f"选品命中{len(hit_trends)}/{len(product_hints[:10])}趋势品类，风格方向对齐{('、'.join(hit_styles) or '基础风格')}",
+        })
 
-博主人设:
-{persona_json}
-{trend_section}
-待选商品:
-{products_json}
+    def _score_product(self, product: dict, persona: dict, product_hints: list[dict], style_directions: list[dict]) -> tuple[float, list[str]]:
+        body_type = persona.get("body_type", "")
+        avoid_tags = persona.get("avoid_tags") or []
+        style_tags = persona.get("style_tags") or []
+        haystack = self._product_text(product)
 
-选品规则:
-1. 优先匹配趋势品类中的商品（品类命中 trend_hints → 加分）
-2. 商品的 style 标签必须与趋势风格方向兼容，冲突的排除
-3. 每套搭配覆盖 2-3 个趋势品类
-4. 必须遵守博主的体型约束和避雷标签（硬约束）
+        if keyword_matches_any(haystack, avoid_tags + _BODY_NEGATIVE.get(body_type, [])):
+            return 0, ["命中避雷或体型硬约束"]
 
-请输出JSON格式的匹配结果。"""
+        score = 4.0
+        reasons = []
 
-        result = self._llm_json(PRODUCT_MATCHER_SYSTEM_PROMPT, user_prompt)
-        return SkillResult(success=True, data=result)
+        product_keywords = [h.get("keyword", "") for h in product_hints]
+        if keyword_matches_any(haystack, product_keywords):
+            score += 3.0
+            reasons.append("命中趋势品类")
+
+        style_keywords = [d.get("keyword", "") for d in style_directions] + style_tags
+        if keyword_matches_any(haystack, style_keywords):
+            score += 2.0
+            reasons.append("风格与趋势方向兼容")
+
+        body_positive = _BODY_POSITIVE.get(body_type, [])
+        if keyword_matches_any(haystack, body_positive):
+            score += 1.5
+            reasons.append(f"适合{body_type}体型")
+
+        if product.get("images"):
+            score += 0.5
+            reasons.append("有商品参考图，利于图生图一致性")
+
+        return score, reasons
+
+    def _product_text(self, product: dict) -> str:
+        attrs = product.get("attributes") or {}
+        return " ".join([
+            str(product.get("name", "")),
+            str(product.get("category", "")),
+            str(product.get("brand", "")),
+            str(product.get("style", "")),
+            " ".join(f"{k}:{v}" for k, v in attrs.items()),
+        ]).lower()
+
+    def _pick_balanced_set(self, products: list[dict]) -> list[dict]:
+        selected = []
+        seen_categories = set()
+        for product in products:
+            category = product.get("category") or "其他"
+            if category not in seen_categories or len(selected) < 2:
+                selected.append(product)
+                seen_categories.add(category)
+            if len(selected) >= 4:
+                break
+        return selected or products[:3]
+
+    def _hit_keywords(self, products: list[dict], trends: list[dict], include_style: bool = False) -> list[str]:
+        hits = []
+        product_text = " ".join(self._product_text(p) for p in products)
+        if include_style:
+            product_text += " " + " ".join(str(p.get("style", "")) for p in products)
+        for trend in trends[:10]:
+            keyword = trend.get("keyword", "")
+            if keyword and keyword_matches_any(product_text, [keyword]):
+                hits.append(keyword)
+        return hits

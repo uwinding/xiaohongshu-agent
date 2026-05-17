@@ -1,0 +1,4 @@
+interface:
+  display_name: "小红书穿搭博主 Agent"
+  short_description: "运营 AI 虚拟穿搭博主工作流。"
+  default_prompt: "使用这个 skill 运行、维护并优化小红书虚拟穿搭博主 Agent 工作流。"

@@ -1,26 +1,16 @@
 from app.skills.base import BaseSkill, SkillResult
-import json
 
-OUTFIT_COMPOSER_SYSTEM_PROMPT = """你是小红书穿搭搭配专家。根据商品组合、博主人设和当前趋势风格方向，
-创作完整的穿搭方案，并生成用于AI图片生成的Prompt。
 
-穿搭要求:
-- 考虑体型特点，运用显瘦/显高技巧
-- 考虑颜色搭配、材质搭配、风格统一
-- 描述要具体可生成：包含款式、颜色、材质、搭配细节、场景、光线、构图
-- 生图Prompt必须是英文，穿搭描述用中文
-- 风格必须贴合趋势 style_directions 中的至少一个方向
-- scene 从趋势风格方向中衍生（如"通勤穿搭"→"高层写字楼走廊"）
-
-输出格式:
-{
-  "outfit_desc": "中文穿搭描述，100-200字",
-  "pos_prompt": "英文生图Prompt，80-150词（须包含趋势风格关键词）",
-  "neg_prompt": "英文反向Prompt",
-  "scene": "场景描述",
-  "style_direction": "本次采用的趋势风格方向"
+_BODY_TIPS = {
+    "大码": {
+        "desc": "用高腰线、垂坠面料和适度露肤拉长比例，整体更显瘦也更舒展。",
+        "neg": "tight clothing, bodycon skirt, low waist, horizontal stripes",
+    },
+    "小个子": {
+        "desc": "通过高腰、短上衣和利落下装抬高视觉重心，显高不压个子。",
+        "neg": "oversized silhouette, floor length pants, bulky layers",
+    },
 }
-"""
 
 
 class OutfitComposer(BaseSkill):
@@ -30,40 +20,70 @@ class OutfitComposer(BaseSkill):
         product_set = product_set or kwargs.get("product_set", [])
         persona = persona or kwargs.get("persona", {})
         scene = scene or kwargs.get("scene", "")
+        style = style or kwargs.get("style", "")
         style_directions = style_directions or kwargs.get("style_directions", [])
 
         if not product_set:
             return SkillResult(success=False, error="Empty product set")
 
-        products_json = json.dumps(product_set, ensure_ascii=False, indent=2)
-        persona_json = json.dumps(persona, ensure_ascii=False, indent=2)
+        style_direction = self._choose_style(style, persona, style_directions)
+        final_scene = scene or self._scene_from_style(style_direction)
+        body_type = persona.get("body_type", "标准")
+        body_tip = _BODY_TIPS.get(body_type, {"desc": "保持线条利落、配色统一，突出自然高级感。", "neg": "messy outfit, cheap fabric"})
+        product_names = [p.get("name") or p.get("category") or "单品" for p in product_set]
+        product_phrase = "、".join(product_names)
 
-        trend_section = ""
+        outfit_desc = (
+            f"这套以{style_direction}为主线，选择{product_phrase}组合。"
+            f"{body_tip['desc']}配色保持干净统一，重点突出第一眼的穿搭完整度，"
+            f"适合{final_scene}场景拍成小红书OOTD。"
+        )
+
+        prompt_items = ", ".join(self._prompt_item(p) for p in product_set)
+        avatar = persona.get("avatar_desc", "")
+        pos_prompt = (
+            f"photorealistic Xiaohongshu fashion OOTD, {avatar}, wearing {prompt_items}, "
+            f"{style_direction} style, {final_scene}, full body shot, natural soft light, "
+            "clean composition, realistic fabric texture, consistent outfit details"
+        )
+        neg_prompt = (
+            f"{body_tip['neg']}, deformed face, bad hands, extra fingers, distorted clothes, "
+            "wrong product details, watermark, text overlay, low quality"
+        )
+
+        return SkillResult(success=True, data={
+            "outfit_desc": outfit_desc,
+            "pos_prompt": pos_prompt,
+            "neg_prompt": neg_prompt,
+            "scene": final_scene,
+            "style_direction": style_direction,
+        })
+
+    def _choose_style(self, style: str, persona: dict, style_directions: list[dict]) -> str:
+        if style:
+            return style
         if style_directions:
-            dirs_text = "\n".join(
-                f"  - {d['keyword']}（{d.get('lifecycle','')}，竞争度{d.get('competition','?')}%，增占比{d.get('inc_ratio','?')}%）"
-                for d in style_directions[:8]
-            )
-            trend_section = f"\n当前趋势风格方向（优先使用增长期+低竞争度的方向）：\n{dirs_text}\n"
+            return style_directions[0].get("keyword", "") or "日常穿搭"
+        style_tags = persona.get("style_tags") or []
+        return style_tags[0] if style_tags else "日常穿搭"
 
-        user_prompt = f"""请根据以下信息创作穿搭方案:
+    def _scene_from_style(self, style_direction: str) -> str:
+        if "通勤" in style_direction or "职场" in style_direction:
+            return "写字楼电梯厅或通勤街角"
+        if "法式" in style_direction:
+            return "法式咖啡馆外的自然街拍"
+        if "海边" in style_direction or "度假" in style_direction:
+            return "海边度假步道"
+        if "约会" in style_direction:
+            return "傍晚城市街区"
+        return "干净街景或生活方式空间"
 
-博主人设:
-{persona_json}
-
-搭配商品:
-{products_json}
-{trend_section}
-指定场景: {scene or '从趋势方向中选取'}
-指定风格: {style or '从趋势方向中选取'}
-
-穿搭规则:
-1. 风格必须贴合趋势 style_directions 中的一个方向（优先增长期+低竞争度）
-2. scene 从趋势风格方向中衍生
-3. pos_prompt 必须包含趋势风格关键词
-4. 考虑博主体型做显瘦/显高优化
-
-请输出JSON格式的穿搭方案。"""
-
-        result = self._llm_json(OUTFIT_COMPOSER_SYSTEM_PROMPT, user_prompt)
-        return SkillResult(success=True, data=result)
+    def _prompt_item(self, product: dict) -> str:
+        parts = [str(product.get("name") or product.get("category") or "fashion item")]
+        attrs = product.get("attributes") or {}
+        for key in ("color", "material", "fit", "pattern"):
+            if attrs.get(key):
+                parts.append(str(attrs[key]))
+        if product.get("style"):
+            parts.append(str(product["style"]))
+        return " ".join(parts)

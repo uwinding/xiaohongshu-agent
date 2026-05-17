@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
-from app.llm_client import LLMClient
 
 
 @dataclass
@@ -15,7 +14,7 @@ class SkillResult:
 class BaseSkill(ABC):
     name: str = "base"
 
-    def __init__(self, llm_client: LLMClient):
+    def __init__(self, llm_client: Any | None = None):
         self.llm = llm_client
 
     @abstractmethod
