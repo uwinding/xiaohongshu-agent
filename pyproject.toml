@@ -17,6 +17,9 @@ dependencies = [
     "pydantic>=2.7.0",
     "pydantic-settings>=2.2.0",
     "requests>=2.31.0",
+    "xhshow>=0.1.9",
+    "playwright>=1.45.0",
+    "tenacity>=8.0.0",
 ]
 
 [project.optional-dependencies]
