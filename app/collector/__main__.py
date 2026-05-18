@@ -21,6 +21,8 @@ def main():
                         help="Max notes per keyword")
     parser.add_argument("--headless", type=lambda x: x.lower() == "true", default=True,
                         help="Run browser in headless mode (true/false)")
+    parser.add_argument("--page-hotwords", action="store_true",
+                        help="Also extract hot words from page DOM (opens browser)")
     args = parser.parse_args()
 
     keywords = [args.keyword] if args.keyword else load_keywords(args.keywords_file)
@@ -37,7 +39,11 @@ def main():
     else:
         print("No XHS_COOKIE set, will use browser QR login")
 
-    results = asyncio.run(run_collect(keywords, config, cookie_str=cookie_str))
+    results = asyncio.run(run_collect(
+        keywords, config,
+        cookie_str=cookie_str,
+        fetch_page_hotwords=args.page_hotwords,
+    ))
 
     for r in results:
         if r.hotwords:
