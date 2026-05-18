@@ -5,6 +5,7 @@ from pathlib import Path
 from app.database import init_db, get_db
 from app.config import get_settings
 from app.models import GeneratedPost, Trend
+from app.collector import models as collector_models  # noqa: F401
 from app.routes import generate, posts, trends
 from fastapi import Request, Depends
 from fastapi.responses import HTMLResponse

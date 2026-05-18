@@ -9,6 +9,7 @@ Base = declarative_base()
 
 
 def init_db():
+    import app.collector.models as _  # noqa: F401 - register collector tables
     Base.metadata.create_all(bind=engine)
 
 
