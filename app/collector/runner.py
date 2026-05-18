@@ -93,7 +93,7 @@ async def _collect_keyword(
                 saved_count += 1
             save_snapshot(task_id, detail, keyword, result.hotwords)
             notes.append(detail)
-            await asyncio.sleep(random.uniform(1, 3))
+            await asyncio.sleep(random.uniform(1.5, 3))
 
         export_csv(result, notes)
         export_json(result, notes)

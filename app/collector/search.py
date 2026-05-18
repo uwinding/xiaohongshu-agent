@@ -70,12 +70,15 @@ async def search_keyword(
         for item in items:
             model_type = item.get("model_type", "")
             if model_type == "hot_query":
-                hotword_text = item.get("search_word", "")
-                if hotword_text and hotword_text not in hotwords_seen:
-                    hotwords_seen.add(hotword_text)
-                    result.hotwords.append(
-                        Hotword(rank=len(result.hotwords) + 1, text=hotword_text)
-                    )
+                hq = item.get("hot_query", {})
+                queries = hq.get("queries", [])
+                for q in queries:
+                    q_text = q.get("search_word", "")
+                    if q_text and q_text not in hotwords_seen:
+                        hotwords_seen.add(q_text)
+                        result.hotwords.append(
+                            Hotword(rank=len(result.hotwords) + 1, text=q_text)
+                        )
             elif model_type not in ("rec_query",):
                 note_id = item.get("id", "")
                 xsec_token = item.get("xsec_token", "")
@@ -94,11 +97,15 @@ async def search_keyword(
                         note_type=ntype,
                         cover_url=str(cover),
                     ))
+                if len(result.cards) >= max_notes:
+                    break
 
         if not has_more:
             break
+        if len(result.cards) >= max_notes:
+            break
         page += 1
-        await asyncio.sleep(random.uniform(1, 2))
+        await asyncio.sleep(random.uniform(2, 4))
 
     logger.info(
         "Search done: keyword=%s hotwords=%s notes=%s",
