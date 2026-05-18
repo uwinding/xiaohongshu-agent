@@ -34,6 +34,24 @@ def _ts_to_iso(ts_ms: int) -> str:
     return ""
 
 
+def _parse_count(value) -> int:
+    if isinstance(value, (int, float)):
+        return int(value)
+    if not value:
+        return 0
+    s = str(value).strip()
+    if not s:
+        return 0
+    if "万" in s:
+        return int(float(s.replace("万", "")) * 10000)
+    if "千" in s:
+        return int(float(s.replace("千", "")) * 1000)
+    try:
+        return int(float(s))
+    except ValueError:
+        return 0
+
+
 async def fetch_note_detail(
     client: XhsApiClient,
     note_id: str,
@@ -87,9 +105,9 @@ async def fetch_note_detail(
         author_id=user_info.get("user_id", "") or user_info.get("id", ""),
         author_name=user_info.get("nickname", "") or user_info.get("name", ""),
         publish_time=_ts_to_iso(data.get("time", 0)),
-        like_count=int(interact.get("liked_count", 0)),
-        collect_count=int(interact.get("collected_count", 0)),
-        comment_count=int(interact.get("comment_count", 0)),
+        like_count=_parse_count(interact.get("liked_count", 0)),
+        collect_count=_parse_count(interact.get("collected_count", 0)),
+        comment_count=_parse_count(interact.get("comment_count", 0)),
         note_type=note_type_val,
         tags=tags,
         source_url=source_url,

@@ -197,7 +197,7 @@ class XhsApiClient:
 
     async def check_login(self) -> bool:
         uri = "/api/sns/web/v1/user/selfinfo"
-        sign_headers = self._sign(uri, params={}, method="GET")
+        sign_headers = self._sign(uri, data={}, method="GET")
         headers = {**self._base_headers(), **sign_headers}
         try:
             resp = await self._request("GET", f"{self._host}{uri}", headers=headers, params={})

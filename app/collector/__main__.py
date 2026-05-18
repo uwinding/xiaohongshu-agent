@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import argparse
+import os
 
 from app.collector.config import CollectorConfig, load_keywords
 from app.collector.runner import run_collect
@@ -28,9 +29,25 @@ def main():
         max_notes_per_keyword=args.max_notes,
     )
 
+    cookie_str = os.environ.get("XHS_COOKIE", "")
+
     print(f"Starting collector with keywords: {keywords}")
-    asyncio.run(run_collect(keywords, config))
+    if cookie_str:
+        print(f"Using cookie from XHS_COOKIE env (length={len(cookie_str)})")
+    else:
+        print("No XHS_COOKIE set, will use browser QR login")
+
+    results = asyncio.run(run_collect(keywords, config, cookie_str=cookie_str))
+
+    for r in results:
+        if r.hotwords:
+            print(f"  [{r.keyword}] hotwords: {[h.text for h in r.hotwords]}")
+            print(f"  [{r.keyword}] notes: {len(r.cards)}")
+        else:
+            print(f"  [{r.keyword}] no data")
+
     print("Collection complete!")
+    print(f"Output directory: {config.output_dir}")
 
 
 if __name__ == "__main__":

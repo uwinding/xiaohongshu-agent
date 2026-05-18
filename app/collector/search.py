@@ -1,5 +1,7 @@
+import asyncio
+import random
 from dataclasses import dataclass, field
-from typing import Dict, List
+from typing import List
 from app.collector.client import XhsApiClient
 
 import logging
@@ -43,7 +45,7 @@ async def search_keyword(
     xhs_limit = 20
 
     while len(result.cards) < max_notes:
-        logger.info("Searching keyword=%s page=%s", keyword, page)
+        logger.info("Searching keyword=%s page=%s (collected=%s)", keyword, page, len(result.cards))
         try:
             data = await client.search_notes(
                 keyword=keyword,
@@ -57,6 +59,11 @@ async def search_keyword(
             break
 
         items = data.get("items", [])
+        has_more = data.get("has_more", False)
+        logger.debug("Page %s: items=%s has_more=%s model_types=%s",
+                     page, len(items), has_more,
+                     list(set(i.get("model_type","?") for i in items[:5])))
+
         if not items:
             break
 
@@ -69,10 +76,10 @@ async def search_keyword(
                     result.hotwords.append(
                         Hotword(rank=len(result.hotwords) + 1, text=hotword_text)
                     )
-            elif model_type in ("note", "") or "note_card" in item:
-                note_card = item.get("note_card", item)
-                note_id = note_card.get("note_id", "") or note_card.get("id", "")
+            elif model_type not in ("rec_query",):
+                note_id = item.get("id", "")
                 xsec_token = item.get("xsec_token", "")
+                note_card = item.get("note_card", item)
                 title = note_card.get("display_title", "") or note_card.get("title", "")
                 ntype = note_card.get("type", "normal")
                 cover = note_card.get("cover", {})
@@ -88,10 +95,10 @@ async def search_keyword(
                         cover_url=str(cover),
                     ))
 
-        result.has_more = data.get("has_more", False)
-        if not result.has_more:
+        if not has_more:
             break
         page += 1
+        await asyncio.sleep(random.uniform(1, 2))
 
     logger.info(
         "Search done: keyword=%s hotwords=%s notes=%s",
