@@ -39,7 +39,7 @@ def _parse_count(value) -> int:
         return int(value)
     if not value:
         return 0
-    s = str(value).strip()
+    s = str(value).strip().rstrip("+")
     if not s:
         return 0
     if "万" in s:

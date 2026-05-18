@@ -80,7 +80,11 @@ async def _collect_keyword(
 
         async def fetch_one(card):
             async with semaphore:
-                return await fetch_note_detail(client, card.note_id, card.xsec_token)
+                try:
+                    return await fetch_note_detail(client, card.note_id, card.xsec_token)
+                except Exception as e:
+                    logger.warning("Note detail fetch failed for %s: %s", card.note_id, e)
+                    return None
 
         tasks = [fetch_one(card) for card in result.cards]
         detail_results = await asyncio.gather(*tasks)
