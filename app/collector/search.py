@@ -80,6 +80,8 @@ async def search_keyword(
                             Hotword(rank=len(result.hotwords) + 1, text=q_text)
                         )
             elif model_type not in ("rec_query",):
+                if len(result.cards) >= max_notes:
+                    continue
                 note_id = item.get("id", "")
                 xsec_token = item.get("xsec_token", "")
                 note_card = item.get("note_card", item)
@@ -97,12 +99,8 @@ async def search_keyword(
                         note_type=ntype,
                         cover_url=str(cover),
                     ))
-                if len(result.cards) >= max_notes:
-                    break
 
         if not has_more:
-            break
-        if len(result.cards) >= max_notes:
             break
         page += 1
         await asyncio.sleep(random.uniform(2, 4))
