@@ -2,7 +2,7 @@ import asyncio
 import uuid
 import random
 import logging
-from typing import List
+from typing import List, Optional
 
 from app.collector.browser import CollectorBrowser
 from app.collector.client import XhsApiClient
@@ -21,10 +21,20 @@ from app.collector.store import (
 logger = logging.getLogger(__name__)
 
 
-async def run_collect(keywords: List[str], config: CollectorConfig = None) -> List[SearchResult]:
+async def run_collect(
+    keywords: List[str],
+    config: Optional[CollectorConfig] = None,
+    cookie_str: str = "",
+) -> List[SearchResult]:
     config = config or CollectorConfig()
-    browser = CollectorBrowser(config)
 
+    if cookie_str:
+        client = XhsApiClient(cookie_str, config)
+        if not await client.check_login():
+            logger.warning("Cookie login check failed, proceeding anyway...")
+        return await _collect_keywords(client, keywords, config)
+
+    browser = CollectorBrowser(config)
     try:
         await browser.start()
         await browser.ensure_logged_in()
@@ -34,15 +44,24 @@ async def run_collect(keywords: List[str], config: CollectorConfig = None) -> Li
         if not await client.check_login():
             logger.warning("Login check via API failed, proceeding anyway...")
 
-        all_results = []
-        for keyword in keywords:
-            result = await _collect_keyword(client, keyword, config)
-            all_results.append(result)
-            await asyncio.sleep(random.uniform(3, 5))
-
-        return all_results
+        return await _collect_keywords(client, keywords, config)
     finally:
         await browser.close()
+
+
+async def _collect_keywords(
+    client: XhsApiClient, keywords: List[str], config: CollectorConfig
+) -> List[SearchResult]:
+    results = []
+    for keyword in keywords:
+        try:
+            result = await _collect_keyword(client, keyword, config)
+            results.append(result)
+        except Exception as e:
+            logger.error("Keyword '%s' failed: %s", keyword, e)
+            results.append(SearchResult(keyword=keyword))
+        await asyncio.sleep(random.uniform(3, 5))
+    return results
 
 
 async def _collect_keyword(
