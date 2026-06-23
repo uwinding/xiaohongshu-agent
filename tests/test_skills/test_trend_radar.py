@@ -1,6 +1,7 @@
 from unittest.mock import patch, MagicMock, mock_open
 from app.llm_client import LLMClient
 from app.skills.trend_radar import TrendRadar
+from app.trend_sources import TrendSignal
 
 
 def make_llm() -> LLMClient:
@@ -9,18 +10,18 @@ def make_llm() -> LLMClient:
     return client
 
 
-_FAKE_CSV = """keyword,category,lifecycle,search_index_w,is_surging,inc_views_w,inc_participants_w,total_views_yi,total_participants_w,inc_engagement_pct,total_engagement_pct,inc_ratio_pct,competition_pct,priority,recommend_for,action_note
-夏季穿搭,季节,增长期,846.2,1,33323.0,22.5,389.6,1490.8,0.07,0.04,0.86,60.8,高,综合,综合推荐：夏季穿搭
-韩系穿搭,风格,增长期,234.0,0,24000.0,10.4,252.0,1030.0,0.04,0.04,0.95,10.6,中,风格,穿搭方向：韩系穿搭
-通勤穿搭,场景,增长期,,0,14000.0,8.5,134.7,558.6,0.06,0.04,1.04,43.6,中,风格,穿搭方向：通勤穿搭
-微胖穿搭,人群,增长期,,0,11000.0,4.6,204.8,370.6,0.04,0.02,0.54,15.0,中,风格,穿搭方向：微胖穿搭
-短袖,品类参考,萌芽期,273.4,1,5760.7,3.5,,,0.06,,,,中,选品,优先备货：短袖
-裙子,品类参考,需求期,285.1,1,,,,,,,,,中,选品,优先备货：裙子
-穿搭灵感,灵感,萌芽期,,0,6289.1,1.6,,,0.03,,,,低,标签,话题标签：穿搭灵感
+_FAKE_CSV = """keyword,category,heat_score,growth_score,confidence,evidence_count,source,observed_date
+夏季穿搭,季节,846.2,333.23,0.82,30,collector,2026-06-23
+韩系穿搭,风格,234.0,240.0,0.72,24,collector,2026-06-23
+通勤穿搭,场景,300.0,140.0,0.7,28,collector,2026-06-23
+微胖穿搭,人群,180.0,110.0,0.62,16,collector,2026-06-23
+短袖,品类,273.4,57.6,0.55,18,collector,2026-06-23
+裙子,品类,285.1,20.0,0.5,12,collector,2026-06-23
+穿搭灵感,灵感,120.0,62.8,0.38,9,collector,2026-06-23
 """
 
 
-def test_trend_radar_reads_csv_and_matches_persona():
+def test_trend_radar_reads_collector_csv_and_matches_persona():
     llm = make_llm()
     radar = TrendRadar(llm)
 
@@ -30,8 +31,9 @@ def test_trend_radar_reads_csv_and_matches_persona():
 
     assert result.success
     data = result.data
-    # 韩系穿搭/通勤穿搭 match style tags, 微胖穿搭 matches body_type 大码
-    # product_hints: 0 (no trending product keyword in CSV matches this persona)
+    # 韩系穿搭/通勤穿搭 match style tags, 微胖穿搭 matches body_type 大码.
+    # High-heat product keywords are retained as product hints even without persona terms.
+    assert len(data["product_hints"]) >= 1
     assert len(data["style_directions"]) >= 3  # 韩系穿搭, 通勤穿搭, 微胖穿搭
     assert len(data["topic_tags"]) >= 3
     assert len(data["trend_summary"]) > 0
@@ -68,7 +70,7 @@ def test_trend_radar_matches_by_body_type():
 
 
 def test_trend_radar_no_match_for_unrelated_persona():
-    """Persona with unrelated tags should get empty results."""
+    """Unrelated personas should not get style directions, but hot products stay usable."""
     llm = make_llm()
     radar = TrendRadar(llm)
 
@@ -77,6 +79,38 @@ def test_trend_radar_no_match_for_unrelated_persona():
         result = radar.execute(persona_style_tags=["运动", "户外"], persona_body_type="标准")
 
     assert result.success
-    assert result.data["product_hints"] == []
+    assert result.data["product_hints"] != []
     assert result.data["style_directions"] == []
     assert result.data["matched_count"] == 0
+
+
+def test_trend_radar_ranks_collector_confidence():
+    radar = TrendRadar(make_llm())
+    signals = [
+        TrendSignal(
+            keyword="低证据穿搭",
+            category="风格",
+            source="collector",
+            search_index_w=500,
+            inc_views_w=200,
+            confidence=0.05,
+            evidence_count=1,
+        ),
+        TrendSignal(
+            keyword="通勤穿搭",
+            category="场景",
+            source="collector",
+            search_index_w=300,
+            inc_views_w=180,
+            confidence=0.7,
+            evidence_count=30,
+        ),
+    ]
+
+    with patch("app.skills.trend_radar.load_trend_signals", return_value=signals):
+        result = radar.execute(persona_style_tags=["通勤"], persona_body_type="标准")
+
+    assert result.success
+    assert result.data["style_directions"][0]["keyword"] == "通勤穿搭"
+    assert result.data["style_directions"][0]["confidence"] == 0.7
+    assert result.data["style_directions"][0]["evidence_count"] == 30

@@ -60,13 +60,13 @@ xiaohongshu-agent/
 
 ## 趋势数据工作流
 
-`TrendRadar` 不再依赖灰豚/千瓜导出的 `strategy_full.csv`。后续无论是手工导入还是爬虫采集，只需要落三张源表：
+`TrendRadar` 已废弃灰豚/千瓜三张手工趋势表，只读取 collector 自采样趋势：
 
-- `data/source_hot_search.csv`: `keyword,search_index_w,is_surging`
-- `data/source_topic_total.csv`: `keyword,views,participants`
-- `data/source_topic_inc.csv`: `keyword,views,participants`
+1. 运行小红书 collector，写入热词观察和笔记表现观察表。
+2. 运行 `python3 scripts/collector_to_trends.py` 生成 `data/source_collector_trends.csv`。
+3. `TrendRadar` 基于 `heat_score`、`growth_score`、`confidence`、`evidence_count` 和账号人设相关性筛选穿搭趋势。
 
-可运行 `python scripts/process_trends.py` 生成 `data/trends_normalized.csv` 用于检查归一化结果。
+可运行 `python3 scripts/process_trends.py` 生成 `data/trends_normalized.csv` 用于检查当前 TrendRadar 输入。
 
 ## 生文工作流
 

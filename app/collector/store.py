@@ -3,9 +3,16 @@ import json
 import os
 from datetime import datetime, timezone
 from typing import List
+from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
-from app.collector.models import CollectorTask, CollectorNote, CollectorSnapshot
+from app.collector.models import (
+    CollectorTask,
+    CollectorNote,
+    CollectorSnapshot,
+    CollectorHotwordObservation,
+    CollectorNoteObservation,
+)
 from app.collector.note_detail import NoteDetail
 from app.collector.search import Hotword, SearchResult
 from app.collector.config import CollectorConfig
@@ -69,6 +76,13 @@ def save_note(note: NoteDetail) -> bool:
         if existing:
             return False
 
+        if note.content_hash:
+            hash_exists = db.query(CollectorNote).filter(
+                CollectorNote.content_hash == note.content_hash
+            ).first()
+            if hash_exists:
+                return False
+
         db_note = CollectorNote(
             note_id=note.note_id,
             title=note.title,
@@ -114,10 +128,73 @@ def save_snapshot(task_id: str, note: NoteDetail, keyword: str,
         db.close()
 
 
+def save_hotword_observations(
+    task_id: str,
+    seed_keyword: str,
+    hotwords: List[Hotword],
+    source: str = "api_hot_query",
+    db: Session | None = None,
+) -> int:
+    close_db = db is None
+    if db is None:
+        db = SessionLocal()
+    try:
+        seen = set()
+        count = 0
+        for hotword in hotwords:
+            text = hotword.text.strip()
+            key = (text, hotword.rank, source)
+            if not text or key in seen:
+                continue
+            seen.add(key)
+            db.add(CollectorHotwordObservation(
+                task_id=task_id,
+                seed_keyword=seed_keyword,
+                hotword=text,
+                rank=hotword.rank,
+                source=source,
+                observed_at=_now(),
+            ))
+            count += 1
+        db.commit()
+        return count
+    finally:
+        if close_db:
+            db.close()
+
+
+def save_note_observation(
+    task_id: str,
+    seed_keyword: str,
+    note: NoteDetail,
+    db: Session | None = None,
+) -> None:
+    close_db = db is None
+    if db is None:
+        db = SessionLocal()
+    try:
+        db.add(CollectorNoteObservation(
+            task_id=task_id,
+            seed_keyword=seed_keyword,
+            note_id=note.note_id,
+            like_count=note.like_count,
+            collect_count=note.collect_count,
+            comment_count=note.comment_count,
+            publish_time=note.publish_time,
+            tags_json=json.dumps(note.tags, ensure_ascii=False),
+            observed_at=_now(),
+        ))
+        db.commit()
+    finally:
+        if close_db:
+            db.close()
+
+
 def export_csv(result: SearchResult, notes: List[NoteDetail]) -> str:
     out_dir = _ensure_output_dir()
+    ts = datetime.now(timezone.utc).strftime("%H%M%S")
     filename = os.path.join(
-        out_dir, f"xhs_{result.keyword}_{_now()[:10]}.csv"
+        out_dir, f"xhs_{result.keyword}_{_now()[:10]}_{ts}.csv"
     )
     hotwords_str = ",".join(h.text for h in result.hotwords)
 
@@ -147,8 +224,9 @@ def export_csv(result: SearchResult, notes: List[NoteDetail]) -> str:
 
 def export_json(result: SearchResult, notes: List[NoteDetail]) -> str:
     out_dir = _ensure_output_dir()
+    ts = datetime.now(timezone.utc).strftime("%H%M%S")
     filename = os.path.join(
-        out_dir, f"xhs_{result.keyword}_{_now()[:10]}.json"
+        out_dir, f"xhs_{result.keyword}_{_now()[:10]}_{ts}.json"
     )
     output = {
         "keyword": result.keyword,

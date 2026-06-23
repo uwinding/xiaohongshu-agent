@@ -1,9 +1,7 @@
-import json
-import hashlib
 import time
 import random
+import asyncio
 from typing import Dict, Optional, Any
-from urllib.parse import quote
 
 import httpx
 
@@ -48,31 +46,11 @@ class XhsApiClient:
                 payload=data if isinstance(data, dict) else {},
             )
         else:
-            content_string = self._build_content_string(uri, data, method)
-            a1_value = self._cookie_dict.get("a1", "")
-            ts = time.time()
-            d_value = hashlib.md5(content_string.encode("utf-8")).hexdigest()
-            payload_array = xhshow_client.crypto_processor.build_payload_array(
-                d_value, a1_value, "xhs-pc-web", content_string, ts
+            headers = xhshow_client.sign_headers_get(
+                uri=uri,
+                cookies=self._cookie_str,
+                params=data if isinstance(data, dict) else None,
             )
-            xor_result = xhshow_client.crypto_processor.bit_ops.xor_transform_array(
-                payload_array
-            )
-            cfg = xhshow_client.config
-            x3_b64 = xhshow_client.crypto_processor.b64encoder.encode_x3(
-                xor_result[: cfg.PAYLOAD_LENGTH]
-            )
-            sig_data = cfg.SIGNATURE_DATA_TEMPLATE.copy()
-            sig_data["x3"] = cfg.X3_PREFIX + x3_b64
-            x_s = cfg.XYS_PREFIX + xhshow_client.crypto_processor.b64encoder.encode(
-                json.dumps(sig_data, separators=(",", ":"), ensure_ascii=False)
-            )
-            headers = {
-                "x-s": x_s,
-                "x-s-common": xhshow_client.sign_xs_common(self._cookie_dict),
-                "x-t": str(xhshow_client.get_x_t(ts)),
-                "x-b3-traceid": xhshow_client.get_b3_trace_id(),
-            }
 
         return {
             "x-s": headers.get("x-s", ""),
@@ -80,27 +58,6 @@ class XhsApiClient:
             "x-s-common": headers.get("x-s-common", ""),
             "x-b3-traceid": headers.get("x-b3-traceid", self._gen_trace_id()),
         }
-
-    @staticmethod
-    def _build_content_string(uri: str, data: Optional[Dict], method: str) -> str:
-        if method.upper() == "POST":
-            c = uri
-            if data:
-                c += json.dumps(data, separators=(",", ":"), ensure_ascii=False)
-            return c
-        if not data:
-            return uri
-        params = []
-        for key, value in data.items():
-            if isinstance(value, list):
-                value_str = ",".join(str(v) for v in value)
-            elif value is not None:
-                value_str = str(value)
-            else:
-                value_str = ""
-            value_str = quote(value_str, safe=",")
-            params.append(f"{key}={value_str}")
-        return f"{uri}?{'&'.join(params)}"
 
     @staticmethod
     def _gen_trace_id() -> str:
@@ -137,12 +94,34 @@ class XhsApiClient:
 
     async def _request(self, method: str, url: str, headers: Optional[Dict] = None,
                        json_data: Optional[Dict] = None, params: Optional[Dict] = None) -> Any:
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
-            resp = await client.request(
-                method, url, headers=headers, json=json_data, params=params
-            )
+        max_retries = self.config.retry_times
+
+        for attempt in range(max_retries):
+            try:
+                async with httpx.AsyncClient(timeout=self._timeout) as client:
+                    resp = await client.request(
+                        method, url, headers=headers, json=json_data, params=params
+                    )
+            except (httpx.TimeoutException, httpx.ConnectError) as e:
+                if attempt < max_retries - 1:
+                    delay = 2 ** attempt + random.uniform(0, 1)
+                    logger.warning("%s %s network error (attempt %d/%d): %s — retrying in %.1fs",
+                                   method, url, attempt + 1, max_retries, e, delay)
+                    await asyncio.sleep(delay)
+                    continue
+                raise DataFetchError(f"Request network failed after {max_retries} retries: {e}") from e
+
             if resp.status_code in (461, 471):
                 raise RateLimitError(f"CAPTCHA required, status={resp.status_code}")
+
+            if resp.status_code >= 500:
+                if attempt < max_retries - 1:
+                    delay = 2 ** attempt + random.uniform(0, 1)
+                    logger.warning("%s %s server error %d (attempt %d/%d) — retrying in %.1fs",
+                                   method, url, resp.status_code, attempt + 1, max_retries, delay)
+                    await asyncio.sleep(delay)
+                    continue
+                raise DataFetchError(f"Server error {resp.status_code} persisted after {max_retries} retries")
 
             data = resp.json()
             if data.get("success"):
@@ -151,6 +130,8 @@ class XhsApiClient:
                 raise NoteNotFound(f"Note not found, code={data.get('code')}")
             else:
                 raise DataFetchError(data.get("msg", resp.text[:200]))
+
+        raise DataFetchError(f"Unexpected: retry loop exhausted for {url}")
 
     async def search_notes(
         self,

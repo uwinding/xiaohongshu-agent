@@ -35,16 +35,20 @@ class CollectorBrowser:
         os.makedirs(user_data_dir, exist_ok=True)
 
         logger.info("Launching persistent browser context (headless=%s)", self.config.headless)
-        return await chromium.launch_persistent_context(
-            user_data_dir=user_data_dir,
-            headless=self.config.headless,
-            viewport={"width": 1920, "height": 1080},
-            user_agent=(
+        launch_kwargs = {
+            "user_data_dir": user_data_dir,
+            "headless": self.config.headless,
+            "viewport": {"width": 1920, "height": 1080},
+            "user_agent": (
                 "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
                 "AppleWebKit/537.36 (KHTML, like Gecko) "
                 "Chrome/126.0.0.0 Safari/537.36"
             ),
-        )
+        }
+        if self.config.browser_executable_path:
+            launch_kwargs["executable_path"] = self.config.browser_executable_path
+
+        return await chromium.launch_persistent_context(**launch_kwargs)
 
     async def ensure_logged_in(self) -> None:
         page = self.page

@@ -10,8 +10,9 @@ class TestCollectorConfig:
 
     def test_custom_config(self):
         from app.collector.config import CollectorConfig
-        cfg = CollectorConfig(max_notes_per_keyword=10)
+        cfg = CollectorConfig(max_notes_per_keyword=10, browser_executable_path="/tmp/chrome")
         assert cfg.max_notes_per_keyword == 10
+        assert cfg.browser_executable_path == "/tmp/chrome"
 
     def test_load_keywords_default(self):
         from app.collector.config import load_keywords
@@ -111,6 +112,35 @@ class TestStore:
         path = export_json(r, notes)
         assert os.path.exists(path)
 
+    def test_save_trend_observations(self, setup_db):
+        from app.collector.store import save_hotword_observations, save_note_observation
+        from app.collector.search import Hotword
+        from app.collector.note_detail import NoteDetail
+        from app.collector.models import CollectorHotwordObservation, CollectorNoteObservation
+
+        count = save_hotword_observations(
+            "task1",
+            "穿搭",
+            [Hotword(rank=1, text="通勤穿搭"), Hotword(rank=2, text="通勤穿搭")],
+            db=setup_db,
+        )
+        save_note_observation(
+            "task1",
+            "穿搭",
+            NoteDetail(
+                note_id="note1",
+                like_count=10,
+                collect_count=3,
+                comment_count=2,
+                tags=["#通勤穿搭"],
+            ),
+            db=setup_db,
+        )
+
+        assert count == 2
+        assert setup_db.query(CollectorHotwordObservation).count() == 2
+        assert setup_db.query(CollectorNoteObservation).count() == 1
+
 
 class TestExceptions:
     def test_exceptions(self):
@@ -122,7 +152,22 @@ class TestExceptions:
 
 
 class TestDedup:
-    def test_is_duplicate_no_db(self):
+    def test_is_duplicate_no_db(self, setup_db):
         from app.collector.dedup import is_duplicate
-        result = is_duplicate("nonexistent_note_12345")
+        result = is_duplicate("nonexistent_note_12345", db=setup_db)
         assert result is False
+
+    def test_is_duplicate_with_db(self, setup_db):
+        from app.collector.dedup import is_duplicate
+        from app.collector.models import CollectorNote
+        note = CollectorNote(
+            note_id="existing_note_1",
+            title="test",
+            content_hash="hash1",
+        )
+        setup_db.add(note)
+        setup_db.commit()
+        result = is_duplicate("existing_note_1", db=setup_db)
+        assert result is True
+        result_hash = is_duplicate("other_note", content_hash="hash1", db=setup_db)
+        assert result_hash is True

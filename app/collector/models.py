@@ -57,3 +57,30 @@ class CollectorSnapshot(Base):
     hotwords_json = Column(Text, nullable=True)
     tags_json = Column(Text, nullable=True)
     crawled_at = Column(String(30), default=_now)
+
+
+class CollectorHotwordObservation(Base):
+    __tablename__ = "collector_hotword_observation"
+
+    observation_id = Column(String(32), primary_key=True, default=_uuid)
+    task_id = Column(String(32), ForeignKey("collector_task.task_id"), nullable=True)
+    seed_keyword = Column(String(255), nullable=False)
+    hotword = Column(String(255), nullable=False)
+    rank = Column(Integer, nullable=True)
+    source = Column(String(50), default="api_hot_query")
+    observed_at = Column(String(30), default=_now)
+
+
+class CollectorNoteObservation(Base):
+    __tablename__ = "collector_note_observation"
+
+    observation_id = Column(String(32), primary_key=True, default=_uuid)
+    task_id = Column(String(32), ForeignKey("collector_task.task_id"), nullable=True)
+    seed_keyword = Column(String(255), nullable=False)
+    note_id = Column(String(64), nullable=False)
+    like_count = Column(Integer, default=0)
+    collect_count = Column(Integer, default=0)
+    comment_count = Column(Integer, default=0)
+    publish_time = Column(String(30), nullable=True)
+    tags_json = Column(Text, nullable=True)
+    observed_at = Column(String(30), default=_now)

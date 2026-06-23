@@ -1,9 +1,7 @@
-"""Normalize trend source CSVs into a reviewable trend table.
+"""Normalize collector trend signals into a reviewable trend table.
 
-Crawler/export adapters should write these files under data/:
-- source_hot_search.csv: keyword,search_index_w,is_surging
-- source_topic_total.csv: keyword,views,participants
-- source_topic_inc.csv: keyword,views,participants
+TrendRadar reads only data/source_collector_trends.csv. Generate it with:
+python3 scripts/collector_to_trends.py
 """
 
 import csv
@@ -16,14 +14,10 @@ FIELDS = [
     "keyword",
     "category",
     "source",
-    "search_index_w",
-    "total_views_w",
-    "total_participants_w",
-    "inc_views_w",
-    "inc_participants_w",
-    "is_surging",
     "heat_score",
     "growth_score",
+    "confidence",
+    "evidence_count",
 ]
 
 
@@ -39,14 +33,10 @@ def main() -> None:
                 "keyword": signal.keyword,
                 "category": signal.category,
                 "source": signal.source,
-                "search_index_w": signal.search_index_w or "",
-                "total_views_w": signal.total_views_w or "",
-                "total_participants_w": signal.total_participants_w or "",
-                "inc_views_w": signal.inc_views_w or "",
-                "inc_participants_w": signal.inc_participants_w or "",
-                "is_surging": "1" if signal.is_surging else "",
                 "heat_score": round(signal.heat_score, 2),
                 "growth_score": round(signal.growth_score, 2),
+                "confidence": signal.confidence,
+                "evidence_count": signal.evidence_count,
             })
 
     print(f"wrote {OUTPUT_PATH} ({len(signals)} rows)")

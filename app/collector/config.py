@@ -16,6 +16,7 @@ class CollectorConfig(BaseSettings):
     raw_dir: str = "data/raw"
     xhs_domain: str = "https://www.xiaohongshu.com"
     xhs_api_host: str = "https://edith.xiaohongshu.com"
+    browser_executable_path: str = ""
 
     model_config = {"env_file": ".env", "env_prefix": "COLLECTOR_", "extra": "ignore"}
 

@@ -1,9 +1,15 @@
+from typing import Optional
+from sqlalchemy.orm import Session
+
 from app.database import SessionLocal
 from app.collector.models import CollectorNote
 
 
-def is_duplicate(note_id: str, content_hash: str = "") -> bool:
-    db = SessionLocal()
+def is_duplicate(note_id: str, content_hash: str = "", db: Optional[Session] = None) -> bool:
+    _close = False
+    if db is None:
+        db = SessionLocal()
+        _close = True
     try:
         existing = db.query(CollectorNote).filter(
             CollectorNote.note_id == note_id
@@ -18,4 +24,5 @@ def is_duplicate(note_id: str, content_hash: str = "") -> bool:
                 return True
         return False
     finally:
-        db.close()
+        if _close:
+            db.close()

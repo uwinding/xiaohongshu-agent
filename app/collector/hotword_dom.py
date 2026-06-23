@@ -5,7 +5,7 @@ not the "大家都在搜" hot_query items from the API.
 """
 
 import asyncio
-from typing import List
+from typing import List, Optional
 
 from app.collector.browser import CollectorBrowser
 from app.collector.config import CollectorConfig
@@ -20,8 +20,9 @@ _HOT_TAB_SELECTOR = "div.content-container button.tab"
 
 async def extract_dom_hotwords(
     keyword: str,
-    config: CollectorConfig = None,
+    config: Optional[CollectorConfig] = None,
     cookie_str: str = "",
+    browser: Optional[CollectorBrowser] = None,
 ) -> List[Hotword]:
     """Open XHS search page and extract hot word tabs from DOM.
 
@@ -29,15 +30,19 @@ async def extract_dom_hotwords(
         keyword: Search keyword
         config: Collector config
         cookie_str: Cookie string (if already logged in)
+        browser: Reuse existing browser if provided (avoids profile lock)
 
     Returns:
         List of Hotword objects
     """
     config = config or CollectorConfig()
-    browser = CollectorBrowser(config)
+    own_browser = browser is None
+    if own_browser:
+        browser = CollectorBrowser(config)
 
     try:
-        await browser.start()
+        if own_browser:
+            await browser.start()
         page = browser.page
 
         if cookie_str:
@@ -73,4 +78,5 @@ async def extract_dom_hotwords(
         logger.info("DOM hotwords extracted: %d words for keyword='%s'", len(hotwords), keyword)
         return hotwords
     finally:
-        await browser.close()
+        if own_browser:
+            await browser.close()

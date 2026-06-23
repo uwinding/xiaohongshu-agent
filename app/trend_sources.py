@@ -9,9 +9,7 @@ from typing import Iterable
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 
 SOURCE_FILES = {
-    "hot_search": "source_hot_search.csv",
-    "topic_total": "source_topic_total.csv",
-    "topic_increment": "source_topic_inc.csv",
+    "collector": "source_collector_trends.csv",
 }
 
 
@@ -44,6 +42,8 @@ class TrendSignal:
     inc_views_w: float = 0.0
     inc_participants_w: float = 0.0
     is_surging: bool = False
+    confidence: float = 1.0
+    evidence_count: int = 0
 
     @property
     def heat_score(self) -> float:
@@ -56,52 +56,35 @@ class TrendSignal:
 
 def load_trend_signals(data_dir: Path | str = DATA_DIR) -> list[TrendSignal]:
     base = Path(data_dir)
-    merged: dict[str, dict] = {}
+    signals = _read_collector_trends(base / SOURCE_FILES["collector"])
+    return sorted(signals, key=lambda s: (s.growth_score, s.heat_score), reverse=True)
 
-    for row in _read_csv(base / SOURCE_FILES["hot_search"]):
-        keyword = _clean_keyword(row.get("keyword", ""))
-        if not keyword:
-            continue
-        item = _get_or_create(merged, keyword)
-        item["source"].add("热词榜")
-        item["search_index_w"] += _parse_number(row.get("search_index_w"))
-        item["is_surging"] = item["is_surging"] or _parse_bool(row.get("is_surging"))
 
-    for row in _read_csv(base / SOURCE_FILES["topic_total"]):
-        keyword = _clean_keyword(row.get("keyword", ""))
-        if not keyword:
-            continue
-        item = _get_or_create(merged, keyword)
-        item["source"].add("话题总量榜")
-        item["total_views_w"] += _parse_metric_w(row.get("views"))
-        item["total_participants_w"] += _parse_metric_w(row.get("participants"))
-
-    for row in _read_csv(base / SOURCE_FILES["topic_increment"]):
-        keyword = _clean_keyword(row.get("keyword", ""))
-        if not keyword:
-            continue
-        item = _get_or_create(merged, keyword)
-        item["source"].add("话题增量榜")
-        item["inc_views_w"] += _parse_metric_w(row.get("views"))
-        item["inc_participants_w"] += _parse_metric_w(row.get("participants"))
-
+def _read_collector_trends(path: Path) -> list[TrendSignal]:
     signals = []
-    for keyword, item in merged.items():
+    for row in _read_csv(path):
+        keyword = _clean_keyword(row.get("keyword", ""))
+        if not keyword:
+            continue
+        heat = _parse_number(row.get("heat_score"))
+        growth = _parse_number(row.get("growth_score"))
+        evidence_count = int(_parse_number(row.get("evidence_count")))
+        if heat <= 0 and growth <= 0 and evidence_count <= 0:
+            continue
+        confidence = max(0.0, min(1.0, _parse_number(row.get("confidence"))))
         signals.append(
             TrendSignal(
                 keyword=keyword,
-                category=classify_keyword(keyword),
-                source="/".join(sorted(item["source"])),
-                search_index_w=round(item["search_index_w"], 2),
-                total_views_w=round(item["total_views_w"], 2),
-                total_participants_w=round(item["total_participants_w"], 2),
-                inc_views_w=round(item["inc_views_w"], 2),
-                inc_participants_w=round(item["inc_participants_w"], 2),
-                is_surging=item["is_surging"],
+                category=row.get("category") or classify_keyword(keyword),
+                source=row.get("source") or "collector",
+                search_index_w=heat,
+                inc_views_w=growth,
+                is_surging=growth > 0,
+                confidence=confidence,
+                evidence_count=evidence_count,
             )
         )
-
-    return sorted(signals, key=lambda s: (s.growth_score, s.heat_score), reverse=True)
+    return signals
 
 
 def classify_keyword(keyword: str) -> str:
@@ -117,20 +100,6 @@ def classify_keyword(keyword: str) -> str:
 def keyword_matches_any(keyword: str, terms: Iterable[str]) -> bool:
     keyword_lower = keyword.lower()
     return any(term and (term.lower() in keyword_lower or keyword_lower in term.lower()) for term in terms)
-
-
-def _get_or_create(merged: dict[str, dict], keyword: str) -> dict:
-    if keyword not in merged:
-        merged[keyword] = {
-            "source": set(),
-            "search_index_w": 0.0,
-            "total_views_w": 0.0,
-            "total_participants_w": 0.0,
-            "inc_views_w": 0.0,
-            "inc_participants_w": 0.0,
-            "is_surging": False,
-        }
-    return merged[keyword]
 
 
 def _read_csv(path: Path) -> list[dict]:
@@ -157,12 +126,3 @@ def _parse_number(value: object) -> float:
     match = re.search(r"-?\d+(?:\.\d+)?", text)
     return float(match.group(0)) if match else 0.0
 
-
-def _parse_metric_w(value: object) -> float:
-    text = str(value or "").strip().replace(",", "")
-    if not text:
-        return 0.0
-    number = _parse_number(text)
-    if "亿" in text:
-        return number * 10000
-    return number

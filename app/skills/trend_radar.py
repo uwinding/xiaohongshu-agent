@@ -39,23 +39,37 @@ class TrendRadar(BaseSkill):
             })
 
         ranked = sorted(
-            ((self._persona_score(signal, style_tags, body_type), signal) for signal in signals),
-            key=lambda item: (item[0], item[1].growth_score, item[1].heat_score),
+            ((self._rank_signal(signal, style_tags, body_type), signal) for signal in signals),
+            key=lambda item: item[0]["final_score"],
             reverse=True,
         )
-        matched = [signal for score, signal in ranked if score > 0]
-        candidate_pool = matched
+        matched = [signal for score, signal in ranked if score["persona_relevance"] > 0]
+        candidate_pool = [(score, signal) for score, signal in ranked if score["final_score"] > 0]
 
-        product_hints = [self._to_entry(s) for s in candidate_pool if s.category == "品类"][:10]
-        style_directions = [self._to_entry(s) for s in candidate_pool if s.category in {"风格", "场景", "季节", "人群"}][:10]
-        topic_tags = [self._to_entry(s) for s in candidate_pool if s.category != "品类"][:15]
+        product_hints = [
+            self._to_entry(signal, score)
+            for score, signal in candidate_pool
+            if signal.category == "品类"
+        ][:10]
+        style_directions = [
+            self._to_entry(signal, score)
+            for score, signal in candidate_pool
+            if signal.category in {"风格", "场景", "季节", "人群"}
+            and score["persona_relevance"] > 0
+        ][:10]
+        topic_tags = [
+            self._to_entry(signal, score)
+            for score, signal in candidate_pool
+            if signal.category != "品类"
+            and (score["persona_relevance"] > 0 or signal.confidence >= 0.35)
+        ][:15]
 
         top_product = product_hints[0]["keyword"] if product_hints else "暂无明确品类"
         top_style = style_directions[0]["keyword"] if style_directions else "暂无明确风格"
         summary = (
             f"趋势分析：基于热词榜/话题总量榜/话题增量榜，"
             f"选品优先{top_product}，内容方向优先{top_style}，"
-            f"可用话题{len(topic_tags)}个。"
+            f"可用话题{len(topic_tags)}个；自采样趋势会按置信度降权。"
         )
 
         return SkillResult(success=True, data={
@@ -65,6 +79,35 @@ class TrendRadar(BaseSkill):
             "trend_summary": summary,
             "matched_count": len(matched),
         })
+
+    def _rank_signal(self, signal: TrendSignal, style_tags: list[str], body_type: str) -> dict:
+        persona_relevance = self._persona_score(signal, style_tags, body_type)
+        heat_component = min(30.0, signal.heat_score / 100)
+        growth_component = min(30.0, signal.growth_score / 100)
+        relevance_component = persona_relevance * 8
+        confidence_component = signal.confidence * 15
+        evidence_component = min(5.0, signal.evidence_count / 20)
+
+        # 品类词经常不带人设词，但仍然是选品信号；非品类低相关信号需要置信度支撑。
+        if signal.category == "品类":
+            relevance_floor = 6
+        elif persona_relevance > 0 or signal.confidence >= 0.35:
+            relevance_floor = 0
+        else:
+            relevance_floor = -20
+
+        final_score = (
+            heat_component
+            + growth_component
+            + relevance_component
+            + confidence_component
+            + evidence_component
+            + relevance_floor
+        )
+        return {
+            "final_score": round(max(0.0, final_score), 2),
+            "persona_relevance": persona_relevance,
+        }
 
     def _persona_score(self, signal: TrendSignal, style_tags: list[str], body_type: str) -> int:
         terms = []
@@ -80,7 +123,8 @@ class TrendRadar(BaseSkill):
             score += 1
         return score
 
-    def _to_entry(self, signal: TrendSignal) -> dict:
+    def _to_entry(self, signal: TrendSignal, score: dict | None = None) -> dict:
+        score = score or {"final_score": 0.0, "persona_relevance": 0}
         priority = "高" if signal.growth_score >= 500 or signal.heat_score >= 200 else "中"
         lifecycle = "增长期" if signal.growth_score > 0 or signal.is_surging else "稳定期"
         return {
@@ -95,4 +139,8 @@ class TrendRadar(BaseSkill):
             "inc_views_w": signal.inc_views_w or "",
             "is_surging": signal.is_surging,
             "source": signal.source,
+            "confidence": signal.confidence,
+            "evidence_count": signal.evidence_count,
+            "final_score": score["final_score"],
+            "persona_relevance": score["persona_relevance"],
         }
