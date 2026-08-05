@@ -6,7 +6,7 @@ def make_mock_soup():
     soup = MagicMock()
     card1 = MagicMock()
     title1 = MagicMock()
-    title1.get_text.return_value = "大码法式连衣裙推荐 姐妹们冲"
+    title1.get_text.return_value = "小个子法式连衣裙推荐 姐妹们冲"
     card1.select_one.return_value = title1
     card2 = MagicMock()
     title2 = MagicMock()

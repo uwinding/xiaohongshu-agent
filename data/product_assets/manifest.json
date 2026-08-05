@@ -1,0 +1,420 @@
+{
+  "generated_at": "2026-07-02T15:42:39.573152+00:00",
+  "products_csv": "data/products.csv",
+  "products": {
+    "1046619320114": {
+      "key": "1046619320114",
+      "item_id": "1046619320114",
+      "name": "法式碎花连衣裙",
+      "category": "裙装",
+      "source_url": "https://detail.tmall.com/item.htm?abbucket=15&id=1046619320114&pisk=hmm-X71PwBvkAkpDMMQD8bZ3RKAidD2QdvkFd7Z5-kUItSj3rUlHpqhIgzVWaUyCvfG4KTD7PtNbIJfQOzNChqhrCzvDjhx26J_-wTN7RpsbCJrG4C0iUYrUOtfBSqTLgNxpFwNIOoNbdJqCOkaBHrwgdks7RgMbGSyQAWGQOoZbER57OW_ShKe3dM_QdztbGJeQF8NIOx9YE8ZQOXaWHxN4dkNCuvzWUX_sqd6c5z_ybSICfOy-Eak-wMIKgqUJEYiwYVDghmmYSrXhsoMZobwYX3CaeqMTVJneCwFLJ0rvYCmHhwTE7VMiSGTI2Ci-X23VNMoe-qmSmP5Wnhpsu2qmpGOKDQGK5vrA2piywv0Q0xtDeCJr3onr8Nde_FcQbj3dddp-PUwqGmOHwY76eOeYsLLh8wzD5-FMHKQF8zw4H5vmXw7UoF1..&rn=0df485dcd4e62c1783ab60ac3af99d82&spm=a1z10.5-b-s.w4011-14628668464.368.62b0c58fBbakiu&sku_properties=1627207%3A3232484",
+      "asset_dir": "data/product_assets/1046619320114",
+      "images": [
+        {
+          "url": "https://gw.alicdn.com/bao/uploaded/i2/2228361831/O1CN01LadHPU1POeKdWsxJf_!!2228361831.jpg_.webp",
+          "path": "data/product_assets/1046619320114/ref_01_123dc075fd.webp",
+          "sha256": "123dc075fd91bbb3a1a8a793c23721a6a08199dfc056289aa15f648c29fa4cd8",
+          "bytes": 22210,
+          "content_type": "image/webp"
+        },
+        {
+          "url": "https://img.alicdn.com/imgextra/i2/2228361831/O1CN01iHke8H1POeLUDdr9B_!!4611686018427386471-0-item_pic.jpg_.webp",
+          "path": "data/product_assets/1046619320114/ref_02_9618acfa88.webp",
+          "sha256": "9618acfa88e4c05913c0e2f9f75811e032a0538996d6e64d53c97e0c34843778",
+          "bytes": 105796,
+          "content_type": "image/webp"
+        },
+        {
+          "url": "https://img.alicdn.com/imgextra/i1/2228361831/O1CN013GxS1J1POeKYZgIew_!!2228361831.jpg_.webp",
+          "path": "data/product_assets/1046619320114/ref_03_3d66436be7.webp",
+          "sha256": "3d66436be729fb49390e74b9411da8b35dc8f47b78f7bce2bf7a92b5f5c2b72b",
+          "bytes": 72394,
+          "content_type": "image/webp"
+        },
+        {
+          "url": "https://img.alicdn.com/imgextra/i4/2228361831/O1CN01wxBtGj1POeKdkEYZ7_!!2228361831.jpg_.webp",
+          "path": "data/product_assets/1046619320114/ref_04_ae21735b0d.webp",
+          "sha256": "ae21735b0d3feb34c5da50c82464b4a9d3c76c2a580bcd64ade2fb154c1e280a",
+          "bytes": 58332,
+          "content_type": "image/webp"
+        },
+        {
+          "url": "https://img.alicdn.com/imgextra/i1/2228361831/O1CN015D7jei1POeKdrmROi_!!2228361831.jpg_.webp",
+          "path": "data/product_assets/1046619320114/ref_05_76c68611f3.webp",
+          "sha256": "76c68611f36aa60a8dd4fd1ece6c9947ef90a265a159d21a41800afe0b6bcd3d",
+          "bytes": 75580,
+          "content_type": "image/webp"
+        },
+        {
+          "url": "https://img.alicdn.com/imgextra/i2/2228361831/O1CN01Hk0C1f1POeKdOA7JU_!!2228361831.jpg_.webp",
+          "path": "data/product_assets/1046619320114/ref_06_6d646494c8.webp",
+          "sha256": "6d646494c82fbb208f29d236beb03d841d322dd40f82aefca99b59ca9613c67c",
+          "bytes": 19418,
+          "content_type": "image/webp"
+        }
+      ],
+      "subject_images": [
+        "data/product_assets/1046619320114/ref_01_123dc075fd.webp",
+        "data/product_assets/1046619320114/ref_02_9618acfa88.webp",
+        "data/product_assets/1046619320114/ref_03_3d66436be7.webp"
+      ],
+      "mask_images": [],
+      "visual_signature": {
+        "category": "裙装",
+        "color": "碎花蓝",
+        "fit": "A字",
+        "material": "棉",
+        "style": "法式/田园/显瘦",
+        "image_count": 6
+      },
+      "quality_score": 1.0,
+      "notes": "subject_images use raw product refs; replace with cutouts when segmentation is available"
+    },
+    "1047533025801": {
+      "key": "1047533025801",
+      "item_id": "1047533025801",
+      "name": "高腰弧线廓形迷你牛仔短裤",
+      "category": "裤装",
+      "source_url": "https://detail.tmall.com/item.htm?abbucket=15&id=1047533025801&pisk=h9HjX39Dhf0TS-2wZiw_L1w00RyT6Vza7cUTcz4AbIVaCbinPn2Z7cUs54zo3n4wmNgsfmNYDOUYyLEgD1BTBcI_X4y68erfPL14pkBOWNzAy8FeBlNwLpomVirvY0hwkBytQkWTBSUYy8UuDPEtW5UJezqgXZeTk3i8rleOHsB9eaE0vOBTDVe-2kqhMtUYB7B8mlEYBR3T2aUuXRExWRKS2zqOycDJ8RUvHkD1DYBF8ynYlmo2ZoQURaURCOGuUSZqDvviTDr-UYNUaG7UeDcrkuwBhwqjwDwYfAxd1PNsn8tERO5xQR8tefDopc5DHFlSvvuYFT9Jlj30UqnlspdwxclZj-_XdARKgcoohLCWQYi-62GOneOmEmuxE7J5UxMjgYgjUpCrs1DjOPz7RyoaPSEuc8tWVZw8MuqSj3t5OJPYqu52V31HC&rn=9ae03c176a64eaeb6c4f408074496fbe&spm=a1z10.5-b-s.w4011-14628668464.160.c587c58fPo7ilr&sku_properties=1627207%3A28340",
+      "asset_dir": "data/product_assets/1047533025801",
+      "images": [
+        {
+          "url": "https://gw.alicdn.com/bao/uploaded/i1/2228361831/O1CN01OiAbGg1POeKiYUrvW_!!2228361831.jpg_.webp",
+          "path": "data/product_assets/1047533025801/ref_01_2e21587d5b.webp",
+          "sha256": "2e21587d5b2c729e16a62e288a4269a5a0e862c37aea75072183a8357db5a779",
+          "bytes": 57786,
+          "content_type": "image/webp"
+        },
+        {
+          "url": "https://img.alicdn.com/bao/uploaded/i2/2228361831/O1CN01VpP79m1POeLTdGXIk_!!2228361831.jpg_.webp",
+          "path": "data/product_assets/1047533025801/ref_02_05e1c13c1d.webp",
+          "sha256": "05e1c13c1d47fc1f3a8cfb20534da92368aca6df7a5cacaf3a47112b858fa276",
+          "bytes": 277820,
+          "content_type": "image/webp"
+        },
+        {
+          "url": "https://img.alicdn.com/imgextra/i4/2228361831/O1CN014g8DJQ1POeKisMj9F_!!2228361831.jpg_.webp",
+          "path": "data/product_assets/1047533025801/ref_03_bf9c55ccdf.webp",
+          "sha256": "bf9c55ccdf14920d83ed1ed46242c82b4cb667652303330d591b675066d0f314",
+          "bytes": 171350,
+          "content_type": "image/webp"
+        },
+        {
+          "url": "https://img.alicdn.com/imgextra/i4/2228361831/O1CN015qzr8m1POeKilPVSc_!!2228361831.jpg_.webp",
+          "path": "data/product_assets/1047533025801/ref_04_15c9acc47b.webp",
+          "sha256": "15c9acc47b74307b52d1c66f3ad7064e87c42ade340170513706c959f8214265",
+          "bytes": 182414,
+          "content_type": "image/webp"
+        },
+        {
+          "url": "https://img.alicdn.com/imgextra/i1/2228361831/O1CN01vFAUCs1POeKiyspq1_!!2228361831.jpg_.webp",
+          "path": "data/product_assets/1047533025801/ref_05_c1a643828b.webp",
+          "sha256": "c1a643828b017885daef3f149db1f160f45392fa499be7e466a50fb7d89b0236",
+          "bytes": 179526,
+          "content_type": "image/webp"
+        },
+        {
+          "url": "https://img.alicdn.com/imgextra/i2/O1CN01a69z6z1hJklCkBqOU_!!6000000004257-2-tps-174-106.png_.webp",
+          "path": "data/product_assets/1047533025801/ref_06_ccc75880ab.webp",
+          "sha256": "ccc75880ab8086f1eb64b3958f533366ba77a37455064607144f76ef5c81a7c0",
+          "bytes": 7318,
+          "content_type": "image/webp"
+        }
+      ],
+      "subject_images": [
+        "data/product_assets/1047533025801/ref_01_2e21587d5b.webp",
+        "data/product_assets/1047533025801/ref_02_05e1c13c1d.webp",
+        "data/product_assets/1047533025801/ref_03_bf9c55ccdf.webp"
+      ],
+      "mask_images": [],
+      "visual_signature": {
+        "category": "裤装",
+        "color": "深蓝色",
+        "fit": "高腰直筒",
+        "material": "棉",
+        "style": "显高/夏日/休闲",
+        "image_count": 6
+      },
+      "quality_score": 1.0,
+      "notes": "subject_images use raw product refs; replace with cutouts when segmentation is available"
+    },
+    "1054281977976": {
+      "key": "1054281977976",
+      "item_id": "1054281977976",
+      "name": "女装 V领蕾丝蝴蝶结吊带上衣",
+      "category": "上衣",
+      "source_url": "https://detail.tmall.com/item.htm?abbucket=15&id=1054281977976&pisk=hbTEfNxhvN6idc_pFM_h8Lo1awddQp47Pa6IjdWMOXCSvQfkzL9GPgDdRUJwELzWAe_Cq4X1a84hKkAgss58tgY5FU7dya2SC2Rzplfdi41u-gfIXNtnhxgjzDVGzvRWJlHe6lfAI64hKMcas_C5r_XhxfWGasBu-Lbo_CXOwJVhtzqgSsfPEajhrPfGa6f3ty4nSRfVITblrLAi__6GEabkECbcdz-6m_S5I2OO6zYNTGo6tH1O1wfhY_9fQlZ1HBaGXCRILrd1JNJVGpgg8KRkM3jwzRDVeFRM-3ATLHuzHzzWh7iEIUpypHd4ImT9AFSD7KFKSE0W7ppD2SHXlvpOReJZVYTWbQ9p-nEK0ekwYQRF2VrB7XKkfevxWyknmH-HCpCN_YTNksDV3Gqb2uIGm1Wj9gq82M5V_tGtCuERvzCNhXoA.&rn=41b9c791812913113d82f394da814fe6&spm=a1z10.5-b-s.w4011-14628668464.193.c52cc58fMPPDXC&sku_properties=1627207%3A28324",
+      "asset_dir": "data/product_assets/1054281977976",
+      "images": [
+        {
+          "url": "https://gw.alicdn.com/bao/uploaded/i4/2228361831/O1CN01yMfD8m1POeL5GVXHE_!!2228361831.jpg_.webp",
+          "path": "data/product_assets/1054281977976/ref_01_4df1b241dd.webp",
+          "sha256": "4df1b241dd0965b0bf950faefc41cf7e200c817fb326fa6ccec6a0dd59a60c9b",
+          "bytes": 25576,
+          "content_type": "image/webp"
+        },
+        {
+          "url": "https://img.alicdn.com/imgextra/i4/2228361831/O1CN013cCOUL1POeLU03SeB_!!4611686018427386471-0-item_pic.jpg_.webp",
+          "path": "data/product_assets/1054281977976/ref_02_06001818ef.webp",
+          "sha256": "06001818ef44e7e5d039551d6d3b1921ec5d1d4fe506e517c64d223c5b502b22",
+          "bytes": 312472,
+          "content_type": "image/webp"
+        },
+        {
+          "url": "https://img.alicdn.com/imgextra/i2/2228361831/O1CN01XJy8or1POeL5GVfcR_!!2228361831.jpg_.webp",
+          "path": "data/product_assets/1054281977976/ref_03_c2c25d3289.webp",
+          "sha256": "c2c25d328928c5b7b247f9c45b62eab011b7bd0a2dcce61275b42b0256ac4b7f",
+          "bytes": 23158,
+          "content_type": "image/webp"
+        },
+        {
+          "url": "https://img.alicdn.com/imgextra/i1/2228361831/O1CN01YEksK31POeL0o9isU_!!2228361831.jpg_.webp",
+          "path": "data/product_assets/1054281977976/ref_04_9c38d14b37.webp",
+          "sha256": "9c38d14b3771933ed9bfe29e049b0959e496aad2a4a8d2229a7ea5b98949cf07",
+          "bytes": 20798,
+          "content_type": "image/webp"
+        },
+        {
+          "url": "https://img.alicdn.com/imgextra/i2/2228361831/O1CN014fK9pj1POeL5ThuGR_!!2228361831.jpg_.webp",
+          "path": "data/product_assets/1054281977976/ref_05_c68feec3cc.webp",
+          "sha256": "c68feec3ccc431af6603f45e6f522b3ea8a297dcbb88b78b445f094c7974aa67",
+          "bytes": 146392,
+          "content_type": "image/webp"
+        },
+        {
+          "url": "https://img.alicdn.com/imgextra/i4/2228361831/O1CN015bXcyx1POeL5wkgqY_!!2228361831.jpg_.webp",
+          "path": "data/product_assets/1054281977976/ref_06_088718869c.webp",
+          "sha256": "088718869c8543fdb6a4919596a4ec79b9a47cdac844d36a056671ba6fec0425",
+          "bytes": 25254,
+          "content_type": "image/webp"
+        }
+      ],
+      "subject_images": [
+        "data/product_assets/1054281977976/ref_01_4df1b241dd.webp",
+        "data/product_assets/1054281977976/ref_02_06001818ef.webp",
+        "data/product_assets/1054281977976/ref_03_c2c25d3289.webp"
+      ],
+      "mask_images": [],
+      "visual_signature": {
+        "category": "上衣",
+        "color": "黄色",
+        "fit": "无袖",
+        "material": "棉",
+        "style": "休闲/法式/优雅",
+        "image_count": 6
+      },
+      "quality_score": 1.0,
+      "notes": "subject_images use raw product refs; replace with cutouts when segmentation is available"
+    },
+    "1046618404442": {
+      "key": "1046618404442",
+      "item_id": "1046618404442",
+      "name": "短袖V领双襟纹理连衣裙",
+      "category": "裙装",
+      "source_url": "https://detail.tmall.com/item.htm?abbucket=15&id=1046618404442&pisk=hHWZfmfM6deQ5W9OlCnN47NB7dI98NDjhKT_tw8hflKb6ixc3Z_HhI49Ct7FoZkf1O96i-YB0qDMjImhxntooIXXltJ9HKj9KFcKWJxW2-MmsIXwRL3_Pzw735mH3PSfB3hAvXxJ-hDMSIqExnKXnnxMnk8H03LmIZv0YMYpqhxisA0hx3KwoKAMnHcH4numnKYDxHx2-EvDnZj3YnTHoKvcoMb-Ux5CaxVx12U-pnqXbC8mhe895otTOUSw8qw5LadNdhniXDO1igdRChyqpdsPtpxVHuc2uQ5cCpXg-8ApiHWIyxkfPmNa-tQVW1Ir-76d19RlLanTKT2fLwWhw0y5d8sVpi6ZD8rzes6Fr_HQy86clssl3beLhrI5mgXZX7whdnB1V9-eYr6ee34yzBcSMjdHZH87XIcxMCxDYUZHBjhv6xKePlPR.&rn=0df485dcd4e62c1783ab60ac3af99d82&spm=a1z10.5-b-s.w4011-14628668464.372.62b0c58fBbakiu&sku_properties=1627207%3A133529133",
+      "asset_dir": "data/product_assets/1046618404442",
+      "images": [
+        {
+          "url": "https://gw.alicdn.com/bao/uploaded/i3/2228361831/O1CN01ES56Fk1POeKd4HFNw_!!2228361831.jpg_.webp",
+          "path": "data/product_assets/1046618404442/ref_01_6f044ead69.webp",
+          "sha256": "6f044ead69674b2b3f078598cdc3c696cc04dd76c58ee801a80c46bd33fe6bd7",
+          "bytes": 15782,
+          "content_type": "image/webp"
+        },
+        {
+          "url": "https://img.alicdn.com/imgextra/i3/2228361831/O1CN01AAlaXj1POeLTzjqY4_!!4611686018427386471-0-item_pic.jpg_.webp",
+          "path": "data/product_assets/1046618404442/ref_02_a428bd4bc1.webp",
+          "sha256": "a428bd4bc129b397554b158e70428432bf9355438e7f2e5ee94c20406e7830b5",
+          "bytes": 51582,
+          "content_type": "image/webp"
+        },
+        {
+          "url": "https://img.alicdn.com/imgextra/i1/2228361831/O1CN01P0UjpX1POeKdkAySF_!!2228361831.jpg_.webp",
+          "path": "data/product_assets/1046618404442/ref_03_b3c2ec357a.webp",
+          "sha256": "b3c2ec357abedcfde46dd761c32e8bd87234ef3f8f3e175d122f50ce5dc37ff3",
+          "bytes": 42122,
+          "content_type": "image/webp"
+        },
+        {
+          "url": "https://img.alicdn.com/imgextra/i4/2228361831/O1CN01WhuX6i1POeKdFyUpW_!!2228361831.jpg_.webp",
+          "path": "data/product_assets/1046618404442/ref_04_6e2fdf8ff7.webp",
+          "sha256": "6e2fdf8ff7a6a4c5145fcad53999055a11b33084380d717d069a48c0d8259065",
+          "bytes": 64418,
+          "content_type": "image/webp"
+        },
+        {
+          "url": "https://img.alicdn.com/imgextra/i1/2228361831/O1CN013BKfP91POeKdQmf5b_!!2228361831.jpg_.webp",
+          "path": "data/product_assets/1046618404442/ref_05_3374e191c1.webp",
+          "sha256": "3374e191c13af92fb3fdbc27cd704778236843ccc27f622adb8d2956070e8673",
+          "bytes": 30562,
+          "content_type": "image/webp"
+        },
+        {
+          "url": "https://img.alicdn.com/imgextra/i1/2228361831/O1CN01ewl5xW1POeKdk8ukQ_!!2228361831.jpg_.webp",
+          "path": "data/product_assets/1046618404442/ref_06_95a111631a.webp",
+          "sha256": "95a111631ac4d18b6d712126714f3a602785fca911d2225d21b9ede249f606a6",
+          "bytes": 13472,
+          "content_type": "image/webp"
+        }
+      ],
+      "subject_images": [
+        "data/product_assets/1046618404442/ref_01_6f044ead69.webp",
+        "data/product_assets/1046618404442/ref_02_a428bd4bc1.webp",
+        "data/product_assets/1046618404442/ref_03_b3c2ec357a.webp"
+      ],
+      "mask_images": [],
+      "visual_signature": {
+        "category": "裙装",
+        "color": "磨白色",
+        "fit": "通用体型",
+        "material": "棉",
+        "style": "半身裙/显瘦/休闲",
+        "image_count": 6
+      },
+      "quality_score": 1.0,
+      "notes": "subject_images use raw product refs; replace with cutouts when segmentation is available"
+    },
+    "1059980850795": {
+      "key": "1059980850795",
+      "item_id": "1059980850795",
+      "name": "亮光贴花穆勒鞋款式高跟凉鞋",
+      "category": "鞋包配饰",
+      "source_url": "https://detail.tmall.com/item.htm?abbucket=15&id=1059980850795&pisk=hT6ofHaYyXZPnoFYn8pS1BqxtSeOiDj1beH-TL70TwILVB8d2pqhlEBJygpy-pj1SaLJ9bBD33tIU2kEUIy2fEQKpgFAVgw49NNNEHuq0itn8eJgIDLpdpzT-jHeNRbldqs0LH-4mHKIU37ELiR2lHKEaw8ygq-BAp8F8prDu3tsUb-y8qo2jE-y83lz3m-B4b8EUbk4mHT28pJF8KrDAE8eLp74AgqKZbPkz8AzCXHELT2BZzSo9vcA33vp-g-ILzpxueLHlOzYiiTcaaKf-R4DQ1_cKCJ3EVtlgGv2yd-UHXln5isdnceOwPsAuZ5qtzzT3aSAV6DxcPEkkaB1-4c08yLFWZbjqS67lafOaNG_qOFd3GBArxE7d_85WZbicrrLmasTmF34BDu4LnPquoqm1-Ryc3w0mocChQ-XciE0mflXantkU&rn=fc12f7b656b6a0d7e036629b91b4836e&spm=a1z10.5-b-s.w4011-14628668464.108.5bf1c58ffAEuvw&skuId=6269901894235",
+      "asset_dir": "data/product_assets/1059980850795",
+      "images": [
+        {
+          "url": "https://gw.alicdn.com/bao/uploaded/i3/2228361831/O1CN0143C6Uj1POeLRkxvlY_!!2228361831.jpg_.webp",
+          "path": "data/product_assets/1059980850795/ref_01_78d2bc0fc0.webp",
+          "sha256": "78d2bc0fc04e92c738983866f165d83a21a446562479a8841005212f7e6aa20e",
+          "bytes": 37018,
+          "content_type": "image/webp"
+        },
+        {
+          "url": "https://img.alicdn.com/imgextra/i4/2228361831/O1CN01WlEDM81POeLRwvOf5_!!4611686018427386471-0-item_pic.jpg_.webp",
+          "path": "data/product_assets/1059980850795/ref_02_c00b02e4e2.webp",
+          "sha256": "c00b02e4e2be50f7db021c078d314db344f19dfc3d4bcc7039ba62078534f78c",
+          "bytes": 52766,
+          "content_type": "image/webp"
+        },
+        {
+          "url": "https://img.alicdn.com/imgextra/i4/2228361831/O1CN01MX38MH1POeLRoFFUN_!!2228361831.jpg_.webp",
+          "path": "data/product_assets/1059980850795/ref_03_b64c9a0389.webp",
+          "sha256": "b64c9a0389819acba989d2e4a6eb5d1e4f1140b757a789f9c6f696ff861e0ebe",
+          "bytes": 52716,
+          "content_type": "image/webp"
+        },
+        {
+          "url": "https://img.alicdn.com/imgextra/i2/2228361831/O1CN01WuUMsV1POeLRoHfCG_!!2228361831.jpg_.webp",
+          "path": "data/product_assets/1059980850795/ref_04_40331d1346.webp",
+          "sha256": "40331d134619c9671734baf7ceb79a861c5011c95a8d7890355c1be12345c93a",
+          "bytes": 64210,
+          "content_type": "image/webp"
+        },
+        {
+          "url": "https://img.alicdn.com/imgextra/i2/2228361831/O1CN01Gtz8th1POeLRgsiIe_!!2228361831.jpg_.webp",
+          "path": "data/product_assets/1059980850795/ref_05_1877b6fa32.webp",
+          "sha256": "1877b6fa32419acb73aa71c6b19c5e163705ebba8ff623618d9475b5430ee715",
+          "bytes": 24346,
+          "content_type": "image/webp"
+        },
+        {
+          "url": "https://img.alicdn.com/imgextra/i2/O1CN01a69z6z1hJklCkBqOU_!!6000000004257-2-tps-174-106.png_.webp",
+          "path": "data/product_assets/1059980850795/ref_06_ccc75880ab.webp",
+          "sha256": "ccc75880ab8086f1eb64b3958f533366ba77a37455064607144f76ef5c81a7c0",
+          "bytes": 7318,
+          "content_type": "image/webp"
+        }
+      ],
+      "subject_images": [
+        "data/product_assets/1059980850795/ref_01_78d2bc0fc0.webp",
+        "data/product_assets/1059980850795/ref_02_c00b02e4e2.webp",
+        "data/product_assets/1059980850795/ref_03_b64c9a0389.webp"
+      ],
+      "mask_images": [],
+      "visual_signature": {
+        "category": "鞋包配饰",
+        "color": "金色",
+        "fit": "高跟",
+        "material": "PU",
+        "style": "通勤/法式/显高",
+        "image_count": 6,
+        "shoe_type": "mule",
+        "heel": "high heel",
+        "decor": "floral applique"
+      },
+      "quality_score": 1.0,
+      "notes": "subject_images use raw product refs; replace with cutouts when segmentation is available"
+    },
+    "1049629033715": {
+      "key": "1049629033715",
+      "item_id": "1049629033715",
+      "name": "金属装饰品夹脚圆头平底凉鞋",
+      "category": "鞋包配饰",
+      "source_url": "https://detail.tmall.com/item.htm?abbucket=15&id=1049629033715&pisk=hVpEfwOh9ETnRf6pP66mIpG_U9Kd7e27FT_IsF7MADIS93jkUUTGF_0ddL8wrUyWOp6CZYb14z2h-8qgSgSUE_v5PLWdeTmB3C9zvOj5YMD5r6XMV4h3QqMjhhlhvTtMV22vEFjVmTjh-wfibMI4-TflxhmNqgahrwYkjcSRS8jhr_XGIgI0rTfhEGDG0gZhrwb3SOjfSaXlEUxibg_GrTXkrhbJ78R6iGuWHAr0eGm5Y67uFN8Jl0shtZxh0KvXQqCeCME3vl1BZnCvdMkzB9t2sOjyemVPzsRkdOvnSxfOZHk3k8yWluGESLLyJBK4Sj99Od5DQEEKIKDWQFOBPScvIdtMQh6UKk9SY3d5L3V8R2DD_9CXdlnr9cROKKLiG8nDKh6XZCINb49NHi0Vu1Vbw7CGiG7jv_V8w6jObZiZb7FR9-jNlDCl.&rn=af6bf33fccc2659f792e6aa29636c835&spm=a1z10.5-b-s.w4011-14628668464.244.2484c58fukHTcI&sku_properties=1627207%3A59102628",
+      "asset_dir": "data/product_assets/1049629033715",
+      "images": [
+        {
+          "url": "https://gw.alicdn.com/bao/uploaded/i3/2228361831/O1CN01Zo7py81POeKqOnPeI_!!2228361831.jpg_.webp",
+          "path": "data/product_assets/1049629033715/ref_01_2ac29da218.webp",
+          "sha256": "2ac29da2187c9cbe5cff921a2599697458150b51eefbf47fd6998a6f0997f16d",
+          "bytes": 30408,
+          "content_type": "image/webp"
+        },
+        {
+          "url": "https://img.alicdn.com/imgextra/i3/2228361831/O1CN01XoyVrP1POeLNqqmzB_!!4611686018427386471-0-item_pic.jpg_.webp",
+          "path": "data/product_assets/1049629033715/ref_02_dd7085d15c.webp",
+          "sha256": "dd7085d15c54e5244e98b4fb68a06fffc930fe48c0da77cf37e1d7103e68c220",
+          "bytes": 207182,
+          "content_type": "image/webp"
+        },
+        {
+          "url": "https://img.alicdn.com/imgextra/i3/2228361831/O1CN01S0YXEW1POeKpw4k9q_!!2228361831.jpg_.webp",
+          "path": "data/product_assets/1049629033715/ref_03_01c8a13f46.webp",
+          "sha256": "01c8a13f4651d14a6c822f9d5bd713fc9ed63bd76214874fd8c5214dfc39fd27",
+          "bytes": 150706,
+          "content_type": "image/webp"
+        },
+        {
+          "url": "https://img.alicdn.com/imgextra/i4/2228361831/O1CN01fP361O1POeKqCZBZ9_!!2228361831.jpg_.webp",
+          "path": "data/product_assets/1049629033715/ref_04_9f810f2bca.webp",
+          "sha256": "9f810f2bca0855b977ab4a8520b682dc24cf2c80162bc6aced6c125019b7f58b",
+          "bytes": 28114,
+          "content_type": "image/webp"
+        },
+        {
+          "url": "https://img.alicdn.com/imgextra/i1/2228361831/O1CN017K7rbC1POeKq7KHGb_!!2228361831.jpg_.webp",
+          "path": "data/product_assets/1049629033715/ref_05_f13955ad9a.webp",
+          "sha256": "f13955ad9a5e8e6a9071b3c8c6e15c0c1031094b405870b91338184a806ecdca",
+          "bytes": 48408,
+          "content_type": "image/webp"
+        },
+        {
+          "url": "https://img.alicdn.com/imgextra/i1/2228361831/O1CN01dPi50n1POeKqOp5Zj_!!2228361831.jpg_.webp",
+          "path": "data/product_assets/1049629033715/ref_06_a5bdf3948c.webp",
+          "sha256": "a5bdf3948cadbd79c512d07ded2ac25d8d7d64cc8a00fd538c592d1f1e4ddfb9",
+          "bytes": 67038,
+          "content_type": "image/webp"
+        }
+      ],
+      "subject_images": [
+        "data/product_assets/1049629033715/ref_01_2ac29da218.webp",
+        "data/product_assets/1049629033715/ref_02_dd7085d15c.webp",
+        "data/product_assets/1049629033715/ref_03_01c8a13f46.webp"
+      ],
+      "mask_images": [],
+      "visual_signature": {
+        "category": "鞋包配饰",
+        "color": "巧克力棕色",
+        "fit": "通用",
+        "material": "PU",
+        "style": "休闲/松弛感/通勤",
+        "image_count": 6,
+        "shoe_type": "toe-post",
+        "heel": "flat",
+        "decor": "metal decor"
+      },
+      "quality_score": 1.0,
+      "notes": "subject_images use raw product refs; replace with cutouts when segmentation is available"
+    }
+  }
+}

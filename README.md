@@ -66,6 +66,19 @@ xiaohongshu-agent/
 2. 运行 `python3 scripts/collector_to_trends.py` 生成 `data/source_collector_trends.csv`。
 3. `TrendRadar` 基于 `heat_score`、`growth_score`、`confidence`、`evidence_count` 和账号人设相关性筛选穿搭趋势。
 
+推荐采集命令：
+
+```bash
+python3 -m app.collector --keywords-file data/keywords.yaml --max-notes 80 --sorts time_filtered,general,popularity_descending --recent-days 7 --top-per-metric 10 --page-hotwords --expand-page-hotwords 10
+```
+
+含义：
+
+- `--recent-days 7`: 只保留最近 7 天笔记参与 Top 排名。
+- `--top-per-metric 10`: 分别取点赞、评论、收藏 Top10，并按 `note_id` 去重。
+- `--sorts time_filtered,general,popularity_descending`: 对同一关键词用多个搜索排序拉大候选池，再本地按赞/评/藏重排。
+- `--page-hotwords --expand-page-hotwords 10`: 读取搜索页“综合”旁边的前 10 个关键词，并逐个二次采集。
+
 可运行 `python3 scripts/process_trends.py` 生成 `data/trends_normalized.csv` 用于检查当前 TrendRadar 输入。
 
 ## 生文工作流

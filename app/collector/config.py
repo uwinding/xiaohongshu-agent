@@ -11,6 +11,10 @@ class CollectorConfig(BaseSettings):
     retry_times: int = 3
     page_timeout: int = 30000
     max_notes_per_keyword: int = 50
+    recent_days: int = 0
+    top_per_metric: int = 0
+    expand_page_hotwords_limit: int = 0
+    search_sorts: str = "time_filtered"
     storage_state_path: str = "data/storage_state.json"
     output_dir: str = "data/output"
     raw_dir: str = "data/raw"

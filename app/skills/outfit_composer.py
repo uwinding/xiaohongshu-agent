@@ -2,13 +2,13 @@ from app.skills.base import BaseSkill, SkillResult
 
 
 _BODY_TIPS = {
-    "大码": {
-        "desc": "用高腰线、垂坠面料和适度露肤拉长比例，整体更显瘦也更舒展。",
-        "neg": "tight clothing, bodycon skirt, low waist, horizontal stripes",
-    },
     "小个子": {
         "desc": "通过高腰、短上衣和利落下装抬高视觉重心，显高不压个子。",
-        "neg": "oversized silhouette, floor length pants, bulky layers",
+        "neg": "oversized silhouette, floor length pants, bulky layers, tall supermodel body, exaggerated curves",
+        "prompt": (
+            "young adult petite slim Chinese woman, small frame, narrow shoulders, "
+            "slender legs, realistic 155-160cm height impression, natural full-body proportions"
+        ),
     },
 }
 
@@ -29,7 +29,11 @@ class OutfitComposer(BaseSkill):
         style_direction = self._choose_style(style, persona, style_directions)
         final_scene = scene or self._scene_from_style(style_direction)
         body_type = persona.get("body_type", "标准")
-        body_tip = _BODY_TIPS.get(body_type, {"desc": "保持线条利落、配色统一，突出自然高级感。", "neg": "messy outfit, cheap fabric"})
+        body_tip = _BODY_TIPS.get(body_type, {
+            "desc": "保持线条利落、配色统一，突出自然高级感。",
+            "neg": "messy outfit, cheap fabric",
+            "prompt": "Chinese fashion blogger, natural full-body proportions",
+        })
         product_names = [p.get("name") or p.get("category") or "单品" for p in product_set]
         product_phrase = "、".join(product_names)
 
@@ -40,16 +44,33 @@ class OutfitComposer(BaseSkill):
         )
 
         prompt_items = ", ".join(self._prompt_item(p) for p in product_set)
-        avatar = persona.get("avatar_desc", "")
-        pos_prompt = (
-            f"photorealistic Xiaohongshu fashion OOTD, {avatar}, wearing {prompt_items}, "
-            f"{style_direction} style, {final_scene}, full body shot, natural soft light, "
-            "clean composition, realistic fabric texture, consistent outfit details"
+        identity_prompt = persona.get("identity_prompt") or persona.get("avatar_desc", "")
+        body_prompt = persona.get("body_prompt") or body_tip["prompt"]
+        photo_prompt = persona.get("photo_prompt") or (
+            "full body shot, natural soft light, clean composition, realistic fabric texture"
         )
-        neg_prompt = (
-            f"{body_tip['neg']}, deformed face, bad hands, extra fingers, distorted clothes, "
-            "wrong product details, watermark, text overlay, low quality"
-        )
+        positive_parts = [
+            "photorealistic unbranded fashion blogger OOTD",
+            identity_prompt,
+            body_prompt,
+            f"wearing {prompt_items}",
+            f"{style_direction} style",
+            final_scene,
+            photo_prompt,
+            "consistent outfit details, matching pair of shoes, same shoes on both feet",
+            "plain clean street background without signs or posters, no app interface elements",
+        ]
+        pos_prompt = ", ".join(part for part in positive_parts if part)
+
+        negative_identity = persona.get("negative_identity_prompt", "")
+        negative_parts = [
+            negative_identity,
+            body_tip["neg"],
+            "deformed face, bad hands, extra fingers, distorted clothes, "
+            "wrong product details, mismatched shoes, different shoes on each foot, barefoot, "
+            "watermark, text overlay, low quality",
+        ]
+        neg_prompt = ", ".join(part for part in negative_parts if part)
 
         return SkillResult(success=True, data={
             "outfit_desc": outfit_desc,
@@ -86,4 +107,25 @@ class OutfitComposer(BaseSkill):
                 parts.append(str(attrs[key]))
         if product.get("style"):
             parts.append(str(product["style"]))
+        if product.get("category") == "鞋包配饰":
+            parts.append(self._shoe_prompt_hint(product))
         return " ".join(parts)
+
+    def _shoe_prompt_hint(self, product: dict) -> str:
+        text = " ".join([
+            str(product.get("name", "")),
+            str(product.get("style", "")),
+            " ".join(str(v) for v in (product.get("attributes") or {}).values()),
+        ])
+        hints = ["matching pair", "same shoes on both feet"]
+        if "穆勒" in text or "拖" in text:
+            hints.append("mule sandals")
+        if "高跟" in text:
+            hints.append("block high heel")
+        if "夹脚" in text:
+            hints.append("toe-post sandals")
+        if "贴花" in text or "装饰" in text:
+            hints.append("decorative floral applique")
+        if "金" in text:
+            hints.append("metallic gold")
+        return " ".join(hints)

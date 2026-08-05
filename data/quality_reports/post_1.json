@@ -1,0 +1,36 @@
+{
+  "post_id": 1,
+  "checked_at": "2026-07-29T15:58:47.469086+00:00",
+  "score": 0.15,
+  "needs_review": true,
+  "issues": [
+    "生成图片文件缺失",
+    "质检分低于阈值"
+  ],
+  "image_files": [
+    {
+      "path": "/tmp/img1.png",
+      "exists": false
+    },
+    {
+      "path": "/tmp/img2.png",
+      "exists": false
+    }
+  ],
+  "products": [
+    {
+      "id": null,
+      "name": "测试裙",
+      "category": null,
+      "reference_count": 0,
+      "asset_reference_count": 0
+    }
+  ],
+  "vision_similarity": {
+    "enabled": false,
+    "reason": "VISION_QUALITY_ENABLED is false"
+  },
+  "reference_count": 0,
+  "reference_images": [],
+  "limitations": "当前为无视觉模型基础质检，不能直接判断 SKU 像素级相似度"
+}

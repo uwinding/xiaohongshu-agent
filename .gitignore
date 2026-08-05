@@ -28,3 +28,10 @@ Thumbs.db
 storage/images/
 lhy*
 lhynote*
+
+# Browser runtime data & credentials (敏感)
+data/browser_data/
+data/browser_data_taobao/
+data/storage_state.json
+*:Zone.Identifier
+*.png:Zone.Identifier

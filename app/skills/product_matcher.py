@@ -1,14 +1,13 @@
 from app.skills.base import BaseSkill, SkillResult
 from app.trend_sources import keyword_matches_any
+from app.product_refs import is_direct_image_reference, parse_reference_list
 
 
 _BODY_POSITIVE = {
-    "大码": ["a字", "直筒", "阔腿", "v领", "方领", "高腰", "宽松", "显瘦", "垂坠"],
     "小个子": ["高腰", "短款", "九分", "收腰", "同色", "显高", "短裙"],
 }
 
 _BODY_NEGATIVE = {
-    "大码": ["紧身", "包臀", "低腰", "横条纹"],
     "小个子": ["拖地", "超长", "oversized", "宽大"],
 }
 
@@ -80,11 +79,14 @@ class ProductMatcher(BaseSkill):
             score += 1.5
             reasons.append(f"适合{body_type}体型")
 
-        if product.get("images"):
+        if self._has_reference_image(product):
             score += 0.5
             reasons.append("有商品参考图，利于图生图一致性")
 
         return score, reasons
+
+    def _has_reference_image(self, product: dict) -> bool:
+        return any(is_direct_image_reference(ref) for ref in parse_reference_list(product.get("images")))
 
     def _product_text(self, product: dict) -> str:
         attrs = product.get("attributes") or {}
@@ -97,6 +99,10 @@ class ProductMatcher(BaseSkill):
         ]).lower()
 
     def _pick_balanced_set(self, products: list[dict]) -> list[dict]:
+        coherent = self._pick_coherent_outfit(products)
+        if coherent:
+            return coherent
+
         selected = []
         seen_categories = set()
         for product in products:
@@ -107,6 +113,41 @@ class ProductMatcher(BaseSkill):
             if len(selected) >= 4:
                 break
         return selected or products[:3]
+
+    def _pick_coherent_outfit(self, products: list[dict]) -> list[dict]:
+        dresses = []
+        tops = []
+        bottoms = []
+        outerwear = []
+        shoes_bags = []
+
+        for product in products:
+            text = self._product_text(product)
+            category = product.get("category") or ""
+            if "连衣裙" in text or "one-piece dress" in text:
+                dresses.append(product)
+            elif category == "上衣":
+                tops.append(product)
+            elif category in {"裤装", "裙装"}:
+                bottoms.append(product)
+            elif category == "外套":
+                outerwear.append(product)
+            elif category == "鞋包配饰":
+                shoes_bags.append(product)
+
+        if dresses:
+            selected = [dresses[0]]
+            selected.extend(outerwear[:1])
+            selected.extend(shoes_bags[:1])
+            return selected[:4]
+
+        if tops and bottoms:
+            selected = [tops[0], bottoms[0]]
+            selected.extend(outerwear[:1])
+            selected.extend(shoes_bags[:1])
+            return selected[:4]
+
+        return []
 
     def _hit_keywords(self, products: list[dict], trends: list[dict], include_style: bool = False) -> list[str]:
         hits = []

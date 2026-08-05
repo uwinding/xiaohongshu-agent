@@ -28,6 +28,7 @@ class NoteCard:
 class SearchResult:
     keyword: str
     hotwords: List[Hotword] = field(default_factory=list)
+    dom_hotwords: List[Hotword] = field(default_factory=list)
     cards: List[NoteCard] = field(default_factory=list)
     has_more: bool = False
 

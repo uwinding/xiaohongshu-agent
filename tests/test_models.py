@@ -4,7 +4,7 @@ from app.models import BloggerPersona, Product, Outfit, GeneratedPost, PostPerfo
 def test_create_persona(setup_db):
     persona = BloggerPersona(
         name="测试博主",
-        body_type="大码",
+        body_type="小个子",
         style_tags=["法式", "通勤"],
     )
     setup_db.add(persona)
@@ -24,7 +24,7 @@ def test_create_product(setup_db):
 
 
 def test_create_post_chain(setup_db):
-    persona = BloggerPersona(name="测试", body_type="大码")
+    persona = BloggerPersona(name="测试", body_type="小个子")
     setup_db.add(persona)
 
     product = Product(name="裙子", price=150.0)
@@ -71,17 +71,17 @@ def test_create_outfit_full(setup_db):
     outfit = Outfit(
         product_ids=[1, 2],
         description="法式通勤穿搭",
-        pos_prompt="优雅大码女装，法式风格，办公室场景",
+        pos_prompt="优雅小个子女装，法式风格，办公室场景",
         neg_prompt="紧身，低腰，廉价材质",
-        style_tags=["法式", "通勤", "大码"],
+        style_tags=["法式", "通勤", "小个子"],
         scene="办公室",
-        body_type_suitability="大码",
+        body_type_suitability="小个子",
     )
     setup_db.add(outfit)
     setup_db.commit()
     assert outfit.id is not None
     assert outfit.pos_prompt is not None
     assert outfit.neg_prompt is not None
-    assert outfit.style_tags == ["法式", "通勤", "大码"]
+    assert outfit.style_tags == ["法式", "通勤", "小个子"]
     assert outfit.scene == "办公室"
-    assert outfit.body_type_suitability == "大码"
+    assert outfit.body_type_suitability == "小个子"

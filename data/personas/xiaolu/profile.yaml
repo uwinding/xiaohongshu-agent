@@ -1,0 +1,255 @@
+id: "xiaolu_summer"
+name: "小鹿"
+legacy_names:
+  - "小鹿学姐"
+role: "小红书穿搭博主"
+persona_type: "petite_feminine_daily_outfit_blogger"
+platform: "xiaohongshu"
+
+basic_profile:
+  gender: "female"
+  age_range: "20-24"
+  identity: "日常穿搭分享型博主"
+  positioning: "小个子甜感日常穿搭 / 夏季清爽穿搭 / 学生党与轻通勤穿搭"
+  content_keywords:
+    - "小个子穿搭"
+    - "夏季穿搭"
+    - "甜感穿搭"
+    - "日常简约"
+    - "韩系少女感"
+    - "轻法式"
+    - "校园感"
+    - "约会穿搭"
+    - "平价穿搭"
+    - "显高显瘦"
+
+appearance:
+  face:
+    overall: "清秀自然、亲和力强的年轻亚洲女性面孔，五官柔和，气质干净"
+    face_shape: "小巧鹅蛋脸，脸部线条柔和，下颌不明显，面部比例偏幼态但保持成人感"
+    eyes: "深棕色眼睛，眼型圆润偏杏眼，眼神自然温和，有轻微笑意"
+    nose: "小巧自然的鼻型，鼻梁柔和，不夸张"
+    lips: "自然粉色薄唇，微笑时亲和，不浓妆"
+    skin: "自然浅暖肤色，真实皮肤质感，轻微日光高光，不过度磨皮"
+    expression: "自然微笑，放松，亲切，有邻家感"
+  hair:
+    color: "自然黑色"
+    length: "短发，齐下巴到锁骨上方的短波波头"
+    style: "自然蓬松的短直发，轻薄空气刘海，发尾略内扣，略有自然碎发"
+    fixed_features:
+      - "black short bob haircut"
+      - "thin airy bangs"
+      - "natural slightly messy hair strands"
+  makeup:
+    style: "淡妆或伪素颜妆"
+    details:
+      - "自然底妆"
+      - "轻微腮红"
+      - "自然粉唇"
+      - "不画浓眼妆"
+      - "不使用夸张睫毛或欧美妆感"
+
+body_features:
+  overall: "小个子、纤细、比例轻盈，适合显高穿搭展示"
+  height_impression: "petite, around 155-160cm visual impression"
+  height_cm: 158
+  size_category: "XS-S"
+  body_type: "小个子"
+  body_description: "slim petite body, narrow shoulders, small frame"
+  shoulders: "肩膀较窄，肩线柔和"
+  waist: "腰部纤细，适合短上衣、高腰裙、高腰裤"
+  legs: "腿部纤细，适合短裙、A字裙、袜子与浅口鞋搭配"
+  posture: "站姿自然，略微内敛，双臂自然下垂或单肩背包"
+  fit_constraints:
+    - "避免过度成熟性感"
+    - "避免夸张曲线和夸张身材比例"
+    - "避免欧美超模感"
+    - "保持小个子真实比例"
+    - "保持自然日常街拍感"
+
+outfit_definition:
+  core_style: "甜感日常 + 小个子显高 + 夏季清爽 + 轻韩系"
+  style_tags:
+    - "甜美"
+    - "韩系"
+    - "夏季清爽"
+    - "轻法式"
+    - "轻通勤"
+    - "平价"
+  visual_style_tags:
+    - "sweet casual"
+    - "petite outfit"
+    - "korean casual"
+    - "summer daily outfit"
+    - "soft feminine"
+    - "clean and cute"
+  avoid_styles:
+    - "重辣妹风"
+    - "过度性感"
+    - "欧美浓颜风"
+    - "厚重暗黑风"
+    - "夸张奢牌风"
+    - "过度成熟职场风"
+    - "大面积皮革"
+    - "高跟鞋过高"
+    - "暴露度过高"
+
+outfit_rules:
+  silhouette:
+    - "上短下高，强调高腰线"
+    - "短上衣搭配高腰A字裙或短裤"
+    - "裙长在大腿中部附近，形成显腿长比例"
+    - "避免宽大长上衣压低身高"
+  styling_logic:
+    - "用浅色下装提升夏季清爽感"
+    - "用短袜和浅口鞋强化小个子轻盈感"
+    - "用单肩包增加生活化场景"
+    - "整体颜色不超过三种主色"
+    - "保留真实日常穿搭，不做过度杂志大片化"
+  scene_fit:
+    - "校园"
+    - "周末出门"
+    - "咖啡店"
+    - "约会"
+    - "夏日街拍"
+    - "旅行散步"
+    - "轻通勤"
+
+photo_style:
+  default_scene: "白色或浅灰色墙面前的自然光街拍"
+  lighting: "bright natural daylight, soft sunlight, realistic shadows"
+  camera: "smartphone street photography, full body front view, eye-level camera"
+  composition:
+    - "full body shot"
+    - "subject centered"
+    - "standing naturally against a plain wall"
+    - "minimal background"
+    - "clear outfit details"
+  image_quality:
+    - "realistic photography"
+    - "high resolution"
+    - "natural skin texture"
+    - "not over-retouched"
+    - "xiaohongshu style outfit photo"
+
+image_generation:
+  character_lock_prompt_cn: >
+    固定人物为年轻成年亚洲女性，小个子纤细身材，清秀自然的鹅蛋脸，
+    黑色短波波头，轻薄空气刘海，深棕色圆润杏眼，自然浅暖肤色，
+    淡妆，亲切自然微笑，邻家感，真实日常穿搭博主气质。
+
+  character_lock_prompt_en: >
+    a young adult Asian woman, petite slim body, small frame, soft oval face,
+    natural black short bob haircut, thin airy bangs, dark brown rounded almond eyes,
+    warm fair skin tone, natural makeup, gentle friendly smile, clean girl-next-door look,
+    realistic daily outfit blogger.
+
+  body_lock_prompt_en: >
+    petite and slim figure, narrow shoulders, small waist, slender legs,
+    natural body proportions, realistic height impression, not a tall model,
+    not exaggerated curves, casual relaxed standing posture.
+
+  outfit_base_prompt_cn: >
+    小个子夏季穿搭，短款上衣，高腰下装，显高比例，清爽甜感，
+    韩系日常风，颜色干净柔和，适合小红书穿搭分享。
+
+  outfit_base_prompt_en: >
+    petite summer outfit, cropped fitted top, high-waisted bottom,
+    flattering high waistline, sweet casual Korean daily style,
+    clean soft colors, fresh and lightweight styling,
+    suitable for Xiaohongshu outfit sharing.
+
+  photo_fixed_prompt_en: >
+    realistic photography, full body outfit photo, natural daylight,
+    plain white wall background, smartphone street photography,
+    soft realistic shadows, centered composition, clear clothing details,
+    natural skin texture, high resolution, Xiaohongshu style.
+
+  prompt_template_en: >
+    {character_lock_prompt_en},
+    {body_lock_prompt_en},
+    wearing {outfit_description},
+    {outfit_base_prompt_en},
+    standing naturally against a plain white wall,
+    {photo_fixed_prompt_en}.
+
+  negative_prompt_cn: >
+    避免浓妆，避免欧美脸，避免网红锥子脸，避免过度磨皮，避免夸张大眼，
+    避免高挑超模身材，避免夸张曲线，避免性感暴露，避免低胸，避免透视，
+    避免厚重滤镜，避免动漫风，避免插画风，避免塑料皮肤，避免畸形手指，
+    避免多余肢体，避免脸部变形，避免衣服结构错误，避免水印，避免文字。
+
+  negative_prompt_en: >
+    heavy makeup, western face, influencer V-shaped face, over-smoothed skin,
+    exaggerated big eyes, tall supermodel body, exaggerated curves,
+    sexy revealing outfit, deep neckline, see-through clothes,
+    heavy filter, anime style, illustration style, plastic skin,
+    deformed hands, extra fingers, extra limbs, distorted face,
+    wrong clothing structure, watermark, text, logo.
+
+content_voice:
+  tone: "亲切、轻松、像朋友分享穿搭经验"
+  persona_voice: "小个子女生亲测分享，语气自然，不夸张营销"
+  writing_style:
+    - "短句多"
+    - "多用真实体验"
+    - "强调显高、遮肉、清爽、日常好穿"
+    - "适合小红书口吻"
+    - "可以使用少量 emoji，但不要堆砌"
+  common_phrases:
+    - "小个子真的可以试试这套"
+    - "腰线一拉高，比例会好很多"
+    - "夏天穿起来很清爽"
+    - "这套是日常出门不费力的感觉"
+    - "拍照也很显腿长"
+  avoid_phrases:
+    - "绝绝子"
+    - "狠狠爱住"
+    - "不买后悔"
+    - "全网最强"
+    - "闭眼入"
+    - "纯欲天花板"
+
+references:
+  face:
+    - path: "refs/face_front.jpg.png"
+      view: "front"
+      priority: 1
+    - path: "refs/face_45.jpg.png"
+      view: "45_degree"
+      priority: 2
+  body:
+    - path: "refs/full_body_front.jpg.png"
+      view: "front"
+      priority: 1
+    - path: "refs/full_body_side.jpg.png"
+      view: "side"
+      priority: 2
+
+image_prompt_assembly:
+  reference_strategy:
+    persona_reference:
+      enabled: true
+      priority: "high"
+      usage: "lock face, hairstyle, body proportion, natural expression"
+    product_reference:
+      enabled: true
+      priority: "high"
+      usage: "preserve clothing item shape, color, material, pattern"
+    text_prompt:
+      enabled: true
+      priority: "medium"
+      usage: "control style, scene, pose, photography, Xiaohongshu aesthetic"
+
+  positive_fields:
+    character_anchor: "image_generation.character_lock_prompt_en"
+    body_anchor: "image_generation.body_lock_prompt_en"
+    outfit_anchor: "image_generation.outfit_base_prompt_en"
+    photo_anchor: "image_generation.photo_fixed_prompt_en"
+
+  dynamic_fields:
+    outfit_description: "runtime.outfit_description"
+    product_description: "runtime.product_description"
+    scene_description: "runtime.scene_description"
+
+  negative_field: "image_generation.negative_prompt_en"

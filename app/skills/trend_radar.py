@@ -3,7 +3,6 @@ from app.trend_sources import TrendSignal, keyword_matches_any, load_trend_signa
 
 
 _BODY_TYPE_MAP = {
-    "大码": ["微胖", "显瘦", "梨形", "大码", "丰满"],
     "小个子": ["小个子", "显高", "矮个子", "娇小"],
     "标准": [],
 }

@@ -10,9 +10,20 @@ class TestCollectorConfig:
 
     def test_custom_config(self):
         from app.collector.config import CollectorConfig
-        cfg = CollectorConfig(max_notes_per_keyword=10, browser_executable_path="/tmp/chrome")
+        cfg = CollectorConfig(
+            max_notes_per_keyword=10,
+            browser_executable_path="/tmp/chrome",
+            recent_days=7,
+            top_per_metric=10,
+            expand_page_hotwords_limit=10,
+            search_sorts="time_filtered,general,popularity_descending",
+        )
         assert cfg.max_notes_per_keyword == 10
         assert cfg.browser_executable_path == "/tmp/chrome"
+        assert cfg.recent_days == 7
+        assert cfg.top_per_metric == 10
+        assert cfg.expand_page_hotwords_limit == 10
+        assert cfg.search_sorts == "time_filtered,general,popularity_descending"
 
     def test_load_keywords_default(self):
         from app.collector.config import load_keywords
@@ -57,6 +68,7 @@ class TestSearchResult:
         )
         assert r.keyword == "test"
         assert len(r.hotwords) == 1
+        assert r.dom_hotwords == []
         assert len(r.cards) == 1
 
 
@@ -149,6 +161,64 @@ class TestExceptions:
         )
         assert issubclass(LoginExpired, Exception)
         assert issubclass(RateLimitError, Exception)
+
+
+class TestTopRecentSelection:
+    def test_select_top_recent_notes_by_each_metric(self):
+        from datetime import datetime, timezone, timedelta
+        from app.collector.note_detail import NoteDetail
+        from app.collector.ranking import select_top_recent_notes
+
+        now = datetime(2026, 6, 24, tzinfo=timezone.utc)
+        notes = [
+            NoteDetail(note_id="old", publish_time=(now - timedelta(days=9)).isoformat(), like_count=999, comment_count=999, collect_count=999),
+            NoteDetail(note_id="likes", publish_time=(now - timedelta(days=1)).isoformat(), like_count=100, comment_count=1, collect_count=1),
+            NoteDetail(note_id="comments", publish_time=(now - timedelta(days=1)).isoformat(), like_count=1, comment_count=80, collect_count=1),
+            NoteDetail(note_id="collects", publish_time=(now - timedelta(days=1)).isoformat(), like_count=1, comment_count=1, collect_count=70),
+            NoteDetail(note_id="duplicate", publish_time=(now - timedelta(days=1)).isoformat(), like_count=90, comment_count=70, collect_count=60),
+        ]
+
+        selected = select_top_recent_notes(notes, recent_days=7, top_per_metric=2, now=now)
+        ids = [note.note_id for note in selected]
+
+        assert "old" not in ids
+        assert "likes" in ids
+        assert "comments" in ids
+        assert "collects" in ids
+        assert len(ids) == len(set(ids))
+
+
+class TestCandidatePool:
+    def test_parse_search_sorts_dedupes(self):
+        from app.collector.candidates import parse_search_sorts
+
+        assert parse_search_sorts("time_filtered, general, time_filtered") == [
+            "time_filtered",
+            "general",
+        ]
+
+    def test_merge_search_result_dedupes_notes_and_hotwords(self):
+        from app.collector.candidates import merge_search_result
+        from app.collector.search import SearchResult, Hotword, NoteCard
+
+        target = SearchResult(
+            keyword="穿搭",
+            hotwords=[Hotword(rank=1, text="通勤穿搭")],
+            cards=[NoteCard(note_id="1", title="A", xsec_token="x")],
+        )
+        source = SearchResult(
+            keyword="穿搭",
+            hotwords=[Hotword(rank=1, text="通勤穿搭"), Hotword(rank=2, text="韩系穿搭")],
+            cards=[
+                NoteCard(note_id="1", title="A dup", xsec_token="x"),
+                NoteCard(note_id="2", title="B", xsec_token="y"),
+            ],
+        )
+
+        merged = merge_search_result(target, source)
+
+        assert [h.text for h in merged.hotwords] == ["通勤穿搭", "韩系穿搭"]
+        assert [c.note_id for c in merged.cards] == ["1", "2"]
 
 
 class TestDedup:

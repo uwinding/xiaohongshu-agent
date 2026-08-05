@@ -1,0 +1,48 @@
+{
+  "post_id": 8,
+  "checked_at": "2026-07-02T15:45:45.884859+00:00",
+  "score": 0.74,
+  "needs_review": true,
+  "issues": [
+    "未启用视觉相似度质检，鞋款需要人工复核",
+    "质检分低于阈值"
+  ],
+  "image_files": [
+    {
+      "path": "storage/images/2026-07-02/cd6e33ec661b.jpg",
+      "exists": true,
+      "bytes": 905972,
+      "width": 1536,
+      "height": 2560
+    }
+  ],
+  "products": [
+    {
+      "id": 4,
+      "name": "法式碎花连衣裙",
+      "category": "裙装",
+      "reference_count": 6,
+      "asset_reference_count": 6
+    },
+    {
+      "id": 8,
+      "name": "亮光贴花穆勒鞋款式高跟凉鞋",
+      "category": "鞋包配饰",
+      "reference_count": 6,
+      "asset_reference_count": 6
+    }
+  ],
+  "vision_similarity": {
+    "enabled": false,
+    "reason": "VISION_QUALITY_ENABLED is false"
+  },
+  "reference_count": 5,
+  "reference_images": [
+    "data/product_assets/1046619320114/ref_01_123dc075fd.webp",
+    "data/product_assets/1046619320114/ref_02_9618acfa88.webp",
+    "data/product_assets/1046619320114/ref_03_3d66436be7.webp",
+    "data/product_assets/1059980850795/ref_01_78d2bc0fc0.webp",
+    "data/product_assets/1059980850795/ref_02_c00b02e4e2.webp"
+  ],
+  "limitations": "当前为无视觉模型基础质检，不能直接判断 SKU 像素级相似度"
+}

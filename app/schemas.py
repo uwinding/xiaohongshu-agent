@@ -107,3 +107,4 @@ class GenerateResponse(BaseModel):
     post: PostOut
     outfit: OutfitOut
     generated_images: list[str]
+    quality_report: dict = {}

@@ -11,6 +11,8 @@ from app.collector.exceptions import LoginExpired
 from app.collector.hotword_dom import extract_dom_hotwords
 from app.collector.search import search_keyword, SearchResult, Hotword
 from app.collector.note_detail import fetch_note_detail, NoteDetail
+from app.collector.ranking import select_top_recent_notes
+from app.collector.candidates import parse_search_sorts, merge_search_result
 from app.collector.store import (
     save_task,
     update_task,
@@ -60,10 +62,29 @@ async def _collect_keywords(
     browser: Optional[CollectorBrowser] = None,
 ) -> List[SearchResult]:
     results = []
+    seen_note_ids: set[str] = set()
+    expanded_keywords: set[str] = set(keywords)
     for keyword in keywords:
         try:
-            result = await _collect_keyword(client, keyword, config, cookie_str, fetch_page_hotwords, browser)
+            result = await _collect_keyword(
+                client, keyword, config, cookie_str, fetch_page_hotwords, browser, seen_note_ids
+            )
             results.append(result)
+            if config.expand_page_hotwords_limit > 0:
+                for hotword in result.dom_hotwords[:config.expand_page_hotwords_limit]:
+                    expanded = hotword.text.strip()
+                    if not expanded or expanded in expanded_keywords:
+                        continue
+                    expanded_keywords.add(expanded)
+                    try:
+                        expanded_result = await _collect_keyword(
+                            client, expanded, config, cookie_str, False, browser, seen_note_ids
+                        )
+                        results.append(expanded_result)
+                    except Exception as e:
+                        logger.error("Expanded keyword '%s' failed: %s", expanded, e)
+                        results.append(SearchResult(keyword=expanded))
+                    await asyncio.sleep(random.uniform(3, 5))
         except Exception as e:
             logger.error("Keyword '%s' failed: %s", keyword, e)
             results.append(SearchResult(keyword=keyword))
@@ -75,20 +96,20 @@ async def _collect_keyword(
     client: XhsApiClient, keyword: str, config: CollectorConfig,
     cookie_str: str = "", fetch_page_hotwords: bool = False,
     browser: Optional[CollectorBrowser] = None,
+    seen_note_ids: Optional[set[str]] = None,
 ) -> SearchResult:
     task_id = uuid.uuid4().hex[:16]
     save_task(task_id, keyword, "running")
 
     try:
-        result = await search_keyword(
-            client, keyword, max_notes=config.max_notes_per_keyword
-        )
+        result = await search_candidate_pool(client, keyword, config)
         save_hotword_observations(task_id, keyword, result.hotwords, source="api_hot_query")
 
         dom_hotwords: List[Hotword] = []
         if fetch_page_hotwords:
             try:
                 dom_hotwords = await extract_dom_hotwords(keyword, config, cookie_str, browser=browser)
+                result.dom_hotwords = dom_hotwords
                 logger.info("DOM hotwords: %s", [h.text for h in dom_hotwords])
                 save_hotword_observations(task_id, keyword, dom_hotwords, source="dom_tab")
                 dom_texts = {h.text for h in dom_hotwords}
@@ -112,11 +133,22 @@ async def _collect_keyword(
 
         tasks = [fetch_one(card) for card in result.cards]
         detail_results = await asyncio.gather(*tasks)
+        selected_details = select_top_recent_notes(
+            [detail for detail in detail_results if detail is not None],
+            recent_days=config.recent_days,
+            top_per_metric=config.top_per_metric,
+        )
+        if seen_note_ids is not None:
+            deduped_details = []
+            for detail in selected_details:
+                if detail.note_id in seen_note_ids:
+                    continue
+                seen_note_ids.add(detail.note_id)
+                deduped_details.append(detail)
+            selected_details = deduped_details
 
         saved_count = 0
-        for detail in detail_results:
-            if detail is None:
-                continue
+        for detail in selected_details:
             save_note_observation(task_id, keyword, detail)
             is_new = save_note(detail)
             if is_new:
@@ -136,3 +168,28 @@ async def _collect_keyword(
         logger.error("Keyword '%s' failed: %s", keyword, e)
         update_task(task_id, "failed", error_msg=str(e))
         raise
+
+
+async def search_candidate_pool(
+    client: XhsApiClient,
+    keyword: str,
+    config: CollectorConfig,
+) -> SearchResult:
+    sorts = parse_search_sorts(config.search_sorts)
+    if not sorts:
+        sorts = ["time_filtered"]
+
+    merged = SearchResult(keyword=keyword)
+    seen_hotwords: set[str] = set()
+    seen_cards: set[str] = set()
+    for sort in sorts:
+        result = await search_keyword(
+            client,
+            keyword,
+            max_notes=config.max_notes_per_keyword,
+            sort=sort,
+        )
+        merge_search_result(merged, result, seen_hotwords, seen_cards)
+        await asyncio.sleep(random.uniform(1, 2))
+    return merged
+

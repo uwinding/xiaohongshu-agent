@@ -26,7 +26,7 @@ TOPIC_CATEGORY_ALIASES = {
     "季节": ["夏季", "夏天", "夏日", "春季", "春夏", "早春", "秋冬"],
     "场景": ["通勤", "职场", "约会", "出游", "海边", "度假", "上班", "旅行"],
     "风格": ["法式", "韩系", "温柔", "高级感", "松弛", "慵懒", "日系", "国风", "新中式", "甜美", "辣妹", "休闲"],
-    "人群": ["小个子", "微胖", "大码", "梨形", "显瘦", "显高"],
+    "人群": ["小个子", "显高", "矮个子", "娇小", "150cm", "155cm"],
     "灵感": ["灵感", "技巧", "分享", "今天穿什么", "穿搭合集", "ootd"],
 }
 
@@ -44,20 +44,30 @@ class TrendSignal:
     is_surging: bool = False
     confidence: float = 1.0
     evidence_count: int = 0
+    collector_heat_score: float | None = None
+    collector_growth_score: float | None = None
 
     @property
     def heat_score(self) -> float:
+        if self.collector_heat_score is not None:
+            return self.collector_heat_score
         return max(self.search_index_w, self.total_views_w / 100, self.inc_views_w)
 
     @property
     def growth_score(self) -> float:
+        if self.collector_growth_score is not None:
+            return self.collector_growth_score
         return self.inc_views_w + self.inc_participants_w * 10 + (200 if self.is_surging else 0)
 
 
 def load_trend_signals(data_dir: Path | str = DATA_DIR) -> list[TrendSignal]:
     base = Path(data_dir)
     signals = _read_collector_trends(base / SOURCE_FILES["collector"])
-    return sorted(signals, key=lambda s: (s.growth_score, s.heat_score), reverse=True)
+    return sorted(
+        signals,
+        key=lambda s: (s.confidence, s.growth_score, s.heat_score),
+        reverse=True,
+    )
 
 
 def _read_collector_trends(path: Path) -> list[TrendSignal]:
@@ -82,6 +92,8 @@ def _read_collector_trends(path: Path) -> list[TrendSignal]:
                 is_surging=growth > 0,
                 confidence=confidence,
                 evidence_count=evidence_count,
+                collector_heat_score=heat,
+                collector_growth_score=growth,
             )
         )
     return signals
@@ -125,4 +137,3 @@ def _parse_number(value: object) -> float:
         return 0.0
     match = re.search(r"-?\d+(?:\.\d+)?", text)
     return float(match.group(0)) if match else 0.0
-

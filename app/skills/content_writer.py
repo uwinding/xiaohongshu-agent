@@ -37,15 +37,11 @@ class ContentWriter(BaseSkill):
         })
 
     def _title(self, body_type: str, style: str, product: str) -> str:
-        if body_type == "大码":
-            return f"大码姐妹试试这套{style}{product}，显瘦很自然"
         if body_type == "小个子":
             return f"小个子这套{style}{product}，比例直接拉高"
         return f"这套{style}{product}，日常也能很出片"
 
     def _body_sentence(self, body_type: str) -> str:
-        if body_type == "大码":
-            return "对微胖身材的腰腹和胯部都比较友好，拍照也不容易显局促"
         if body_type == "小个子":
             return "高腰线和利落轮廓能把比例向上带，显高效果很直观"
         return "线条干净、层次明确，日常照着穿不容易出错"
@@ -62,9 +58,7 @@ class ContentWriter(BaseSkill):
             value = f"{tag}穿搭" if "穿搭" not in tag else tag
             if value not in tags:
                 tags.append(value)
-        if body_type == "大码":
-            tags.extend(["大码穿搭", "显瘦穿搭", "微胖穿搭"])
-        elif body_type == "小个子":
+        if body_type == "小个子":
             tags.extend(["小个子穿搭", "显高穿搭"])
         for product in products[:3]:
             category = product.get("category") or ""

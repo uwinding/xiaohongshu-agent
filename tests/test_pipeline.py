@@ -15,7 +15,7 @@ def make_llm() -> LLMClient:
 def test_pipeline_full_flow_success(mock_get_db, setup_db):
     mock_get_db.return_value = iter([setup_db])
 
-    persona = BloggerPersona(name="测试博主", body_type="大码", style_tags=["法式"])
+    persona = BloggerPersona(name="小鹿", body_type="小个子", style_tags=["法式"])
     setup_db.add(persona)
 
     product = Product(name="测试连衣裙", category="裙装", price=199.0)
@@ -46,7 +46,7 @@ def test_pipeline_full_flow_success(mock_get_db, setup_db):
                 with patch.object(pipeline.content_writer, "execute") as mock_write:
                     mock_write.return_value = SkillResult(
                         success=True,
-                        data={"title": "测试标题", "content": "测试正文", "hashtags": ["大码穿搭", "法式"], "product_tags": [{"name": "测试裙", "url": ""}]},
+                        data={"title": "测试标题", "content": "测试正文", "hashtags": ["小个子穿搭", "法式"], "product_tags": [{"name": "测试裙", "url": ""}]},
                     )
 
                     result = pipeline.run(persona_id=persona.id)
@@ -55,3 +55,73 @@ def test_pipeline_full_flow_success(mock_get_db, setup_db):
     assert "post" in result
     assert "outfit" in result
     assert "images" in result
+    image_call = mock_img.call_args.kwargs
+    assert image_call["persona_key"] == "xiaolu_summer"
+    assert [item["role"] for item in image_call["reference_images"]] == [
+        "face_identity",
+        "face_identity",
+        "body_proportion",
+    ]
+
+
+def test_pipeline_collect_reference_images_prioritizes_main_garments():
+    pipeline = GenerationPipeline(llm_client=make_llm())
+
+    refs = pipeline._collect_reference_images([
+        {
+            "category": "鞋包配饰",
+            "images": [
+                "https://img.alicdn.com/imgextra/i1/shoe-side.jpg",
+                "https://img.alicdn.com/imgextra/i1/shoe-front.jpg",
+                "https://img.alicdn.com/imgextra/i1/shoe-detail.jpg",
+            ],
+        },
+        {
+            "category": "裙装",
+            "images": [
+                "https://img.alicdn.com/imgextra/i1/dress-front.jpg",
+                "https://img.alicdn.com/imgextra/i1/dress-side.jpg",
+            ],
+        },
+    ])
+
+    assert refs == [
+        "https://img.alicdn.com/imgextra/i1/dress-front.jpg",
+        "https://img.alicdn.com/imgextra/i1/dress-side.jpg",
+        "https://img.alicdn.com/imgextra/i1/shoe-side.jpg",
+        "https://img.alicdn.com/imgextra/i1/shoe-front.jpg",
+    ]
+
+
+def test_pipeline_allocates_typed_product_reference_slots():
+    pipeline = GenerationPipeline(llm_client=make_llm())
+
+    specs = pipeline._collect_product_reference_specs([
+        {
+            "id": 8,
+            "name": "金色穆勒鞋",
+            "category": "鞋包配饰",
+            "images": [
+                "https://img.alicdn.com/imgextra/i1/shoe-side.jpg",
+                "https://img.alicdn.com/imgextra/i1/shoe-front.jpg",
+            ],
+        },
+        {
+            "id": 4,
+            "name": "法式碎花裙",
+            "category": "裙装",
+            "images": [
+                "https://img.alicdn.com/imgextra/i1/dress-front.jpg",
+                "https://img.alicdn.com/imgextra/i1/dress-side.jpg",
+                "https://img.alicdn.com/imgextra/i1/dress-detail.jpg",
+            ],
+        },
+    ], limit=3)
+
+    assert [item["role"] for item in specs] == [
+        "primary_garment",
+        "primary_garment",
+        "accessory",
+    ]
+    assert [item["weight"] for item in specs] == [1.0, 0.92, 0.78]
+    assert [item["product_id"] for item in specs] == [4, 4, 8]

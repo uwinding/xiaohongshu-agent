@@ -118,105 +118,158 @@
 
 ### 4.1 TrendRadar — 趋势雷达
 
-**职责**：从 `data/strategy_full.csv` 读取预计算趋势数据，按博主人设匹配过滤，按 `recommend_for` 字段分流给三个下游 Skill（ProductMatcher / OutfitComposer / ContentWriter）。
+**职责**：基于小红书 collector 自采样数据识别账号可用的穿搭趋势，输出给 ProductMatcher、OutfitComposer 和 ContentWriter。当前已废弃灰豚/千瓜三张手工趋势表和 `strategy_full.csv` 主链路。
 
-> **实现方式**：趋势数据由 `scripts/comprehensive_analysis.py` 从三个源 CSV 离线计算生成，TrendRadar 不再依赖在线爬虫。
+> **实现方式**：collector 持续采集小红书搜索热词和笔记表现观察 → `scripts/collector_to_trends.py` 聚合为 `data/source_collector_trends.csv` → `TrendRadar` 读取该文件并按热度、增长、置信度、证据量和人设相关性综合排序。
 
-#### 数据源（离线处理 → strategy_full.csv）
+#### 数据源（collector observation → source_collector_trends.csv）
 
-| 数据源                   | CSV 文件                   | 频次  | 信号含义                  | 适合指导         |
-| --------------------- | ------------------------ | --- | --------------------- | ------------ |
-| **热词榜**（搜索指数 + 飙升标记）  | `source_hot_search.csv`  | 周   | **需求信号** — 用户在主动搜什么   | 商品选品、品类覆盖    |
-| **话题增量榜**（浏览量 + 参与人数） | `source_topic_inc.csv`   | 日   | **动量信号** — 什么内容正在起势   | 风格方向、早期趋势发现  |
-| **话题总量榜**（浏览量 + 参与人数） | `source_topic_total.csv` | 日   | **存量信号** — 什么内容已被大量消费 | 赛道规模评估、成熟度判断 |
+| 数据层 | 文件/表 | 说明 | 用途 |
+| ------ | ------ | ---- | ---- |
+| 热词观察 | `collector_hotword_observation` | 每次搜索接口返回的 `hot_query`，可选 DOM tab 热词 | 判断搜索相关词是否反复出现 |
+| 笔记观察 | `collector_note_observation` | 每次采集看到的笔记互动表现、发布时间、标签 | 计算内容互动强度和近期增长 |
+| 素材库 | `collector_note` | 去重后的笔记正文、作者、互动数 | 内容样本沉淀，不直接代表趋势频次 |
+| 聚合趋势表 | `data/source_collector_trends.csv` | 自采样趋势唯一正式输入源 | TrendRadar 读取 |
+| 检查表 | `data/trends_normalized.csv` | TrendRadar 读取后的归一化检查输出 | 调试和人工复核 |
 
-> PM 更新流程：从灰豚数据/千瓜导出三个榜单 → 覆盖 `data/source_*.csv` → 运行 `python scripts/comprehensive_analysis.py` → `strategy_full.csv` 自动更新
+> **定位说明**：自采样数据不能代表全平台真实搜索指数或话题浏览量，但可以反映“当前监控词池内，哪些穿搭方向在升温”，适合账号选题、选品和标签决策。
 
-#### 趋势生命周期模型（双维度判定）
+#### Collector 采集逻辑
 
-由 `comprehensive_analysis.py` 计算，同时考虑增量占比和总量规模：
+当前 collector 支持两类采集：
 
-| 阶段      | 增量占比          | 总量浏览量      | 信号特征             |
-| ------- | ------------- | ---------- | ---------------- |
-| **爆发期** | > 1.5%        | > 500亿     | 高增长 + 大市场，最佳切入窗口 |
-| **增长期** | 0.5 ~ 1.5%    | 100 ~ 500亿 | 稳定增长，适合抢占风格标签    |
-| **萌芽期** | > 0.5%（或仅有增量） | < 100亿     | 早期趋势，可试探性布局      |
-| **成熟期** | < 0.5%        | > 100亿     | 市场饱和，竞争激烈        |
-| **需求期** | 无增量数据         | 仅有搜索量      | 有搜索需求但缺内容供给，选品机会 |
-| **观察**  | 仅有总量数据        | 有总量        | 存量市场，需观察增量信号     |
+1. **基础种子词采集**：读取 `data/keywords.yaml`，如 `穿搭`、`通勤穿搭`、`夏季穿搭`。
+2. **扩展关键词采集**：读取搜索页“综合”旁边的 DOM 关键词，取前 10 个逐个二次采集，并全局按 `note_id` 去重。
 
-#### 判定公式
+优化后的推荐命令：
 
-```
-增量占比(%) = 增量浏览量(万) ÷ 总量浏览量(万) × 100
-
-参与率(%) = 参与人数(万) ÷ 浏览量(万) × 100
-  → 衡量话题互动黏性，> 0.05% 为高参与率
-
-竞争度(%) = 该词浏览量 ÷ 同子类总浏览量 × 100
-  → < 10% 为竞争分散(蓝海)，> 30% 为竞争集中(红海)
+```bash
+python3 -m app.collector \
+  --keywords-file data/keywords.yaml \
+  --max-notes 80 \
+  --sorts time_filtered,general,popularity_descending \
+  --recent-days 7 \
+  --top-per-metric 10 \
+  --page-hotwords \
+  --expand-page-hotwords 10
 ```
 
-#### recommend_for 路由逻辑
+| 参数 | 说明 |
+| ---- | ---- |
+| `--sorts` | 同一关键词用多个小红书搜索排序拉大候选池，再按 `note_id` 去重 |
+| `--recent-days 7` | 只让最近 7 天笔记参与 Top 排名 |
+| `--top-per-metric 10` | 分别取点赞 Top10、评论 Top10、收藏 Top10，并合并去重 |
+| `--page-hotwords` | 通过 Playwright 读取页面 DOM 热词 |
+| `--expand-page-hotwords 10` | 对前 10 个 DOM 关键词二次采集 |
 
-`strategy_full.csv` 中每条关键词的 `recommend_for` 字段决定其下游路由：
+> **接口策略**：如果小红书接口不稳定暴露“按赞/评/藏排序”，不要硬编码猜测参数。当前采用“多搜索排序拉候选池 + 抓详情后本地按赞/评/藏重排”的策略，更可控。
 
-| recommend_for | 路由目标                           | 分类依据                                        |
-| ------------- | ------------------------------ | ------------------------------------------- |
-| **选品**        | ProductMatcher                 | 品类参考词、或 search_index > 100w                 |
-| **综合**        | ProductMatcher + ContentWriter | 选品词同时有高增量和高参与率                              |
-| **风格**        | OutfitComposer                 | 风格/人群/概念分类（不受 lifecycle 限制），以及增长/萌芽期的季节/场景词 |
-| **标签**        | ContentWriter                  | 灵感类、观察期的场景词等                                |
+#### 数据处理逻辑
 
-> **关键规则**：风格/人群类关键词始终路由到「风格」，不因生命周期阶段降级。例如 `高级感穿搭`（萌芽期）、`休闲穿搭`（观察期）仍输出给 OutfitComposer 做风格方向。
+`scripts/collector_to_trends.py` 从观察表聚合趋势，输出字段：
+
+| 字段 | 说明 |
+| ---- | ---- |
+| `keyword` | 归一化后的趋势词 |
+| `category` | 品类/季节/场景/风格/人群/灵感/话题 |
+| `heat_score` | 当前热度，来自热词排名分 + 笔记互动加权 |
+| `growth_score` | 近期增长，当前按最近窗口互动和热词重复出现估算 |
+| `confidence` | 置信度，衡量证据是否足够，不等同于热度 |
+| `evidence_count` | 证据数量，热词观察数 + 去重笔记数 |
+| `source` | 数据来源，如 `api_hot_query`、`dom_tab`、`note_observation` |
+| `observed_date` | 聚合日期 |
+
+互动加权：
+
+```
+engagement_score = like_count + collect_count * 2 + comment_count * 3
+```
+
+置信度由四类证据构成：
+
+| 证据 | 含义 |
+| ---- | ---- |
+| 样本量 | 观察次数和笔记数是否足够 |
+| 种子词覆盖 | 是否从多个监控词入口出现 |
+| 来源多样性 | 是否同时来自 API 热词、DOM 热词、笔记标签 |
+| 连续性 | 是否多次观察到，而不是单篇爆文噪声 |
+
+#### 离题过滤
+
+聚合时会过滤不适合女生穿搭博主账号的母婴/儿童/孕产词，例如：
+
+```
+宝宝、宝妈、母婴、亲子、儿童、童装、婴儿、幼儿、小朋友、孕妈、孕期、纸尿裤
+```
+
+避免小红书搜索中的泛流量词污染穿搭趋势。
+
+#### TrendRadar 综合评分
+
+TrendRadar 不再只看是否命中人设词，而是综合：
+
+```
+final_score =
+  heat_component
+  + growth_component
+  + persona_relevance
+  + confidence_component
+  + evidence_component
+  + category_adjustment
+```
+
+关键策略：
+
+- **品类词**：不强制命中人设，否则会漏掉短裤、半身裙、防晒衣等选品趋势。
+- **风格/场景/人群词**：必须与人设相关，避免内容方向跑偏。
+- **低置信度词**：可以保留为观察项，但不作为主方向。
+- **高热单篇词**：若证据数少、来源单一，需要降权。
 
 #### TrendRadar 输出结构
-
-读取 `strategy_full.csv` → 按博主人设的 `style_tags` 和 `body_type` 匹配相关行 → 按 `recommend_for` 分流输出：
 
 ```json
 {
   "product_hints": [
-    {"keyword": "短袖", "priority": "高", "search_index_w": 273.4, "lifecycle": "萌芽期", "action": "优先备货：短袖..."}
+    {
+      "keyword": "半身裙穿搭",
+      "category": "品类",
+      "heat_score": 280.0,
+      "confidence": 0.289,
+      "evidence_count": 4,
+      "source": "api_hot_query"
+    }
   ],
   "style_directions": [
-    {"keyword": "通勤穿搭", "priority": "中", "inc_ratio": 1.04, "lifecycle": "增长期", "action": "穿搭方向：通勤穿搭..."},
-    {"keyword": "高级感穿搭", "priority": "中", "inc_ratio": 0.58, "lifecycle": "萌芽期"}
+    {
+      "keyword": "通勤穿搭",
+      "category": "场景",
+      "heat_score": 1390.9,
+      "growth_score": 1061.9,
+      "confidence": 0.535,
+      "persona_relevance": 5
+    },
+    {
+      "keyword": "韩系穿搭",
+      "category": "风格",
+      "confidence": 0.456
+    }
   ],
   "topic_tags": [
-    {"keyword": "夏季穿搭", "priority": "高", "category": "季节"},
-    {"keyword": "微胖穿搭", "priority": "中", "category": "人群"},
-    {"keyword": "韩系穿搭", "priority": "中", "category": "风格"},
-    {"keyword": "裙子", "priority": "高", "category": "品类参考"}
+    {"keyword": "夏日穿搭", "category": "季节"},
+    {"keyword": "微胖穿搭", "category": "人群"},
+    {"keyword": "穿搭合集", "category": "灵感"}
   ],
-  "trend_summary": "当前最佳窗口：夏季穿搭（增长期，搜索846w，增占比0.86%）；高优选品：短袖/裙子/连衣裙..."
+  "trend_summary": "趋势分析：基于 collector 自采样趋势，选品优先半身裙穿搭，内容方向优先通勤穿搭。"
 }
 ```
 
-> **ContentWriter 标签策略**：`topic_tags` 不限于 `recommend_for="标签"` 的词，而是返回**所有匹配博主人设的高优先级关键词**（包含风格/人群/选品/标签各类），确保 ContentWriter 能从多维度获选题灵感。
+#### 数据刷新流程
 
-#### 人设匹配规则
-
-| 博主人设 | 体型/风格     | 自动匹配关键词                   |
-| ---- | --------- | ------------------------- |
-| 小鹿学姐 | 大码/法式/通勤  | 微胖穿搭、通勤穿搭、显瘦穿搭、温柔穿搭、高级感穿搭 |
-| 米米姐姐 | 小个子/韩系/甜美 | 小个子穿搭、韩系穿搭、甜妹、梨形身材        |
-| 七七学姐 | 学生/平价/休闲  | 平价穿搭、休闲穿搭、女大学生、不费力的穿搭     |
-
-#### 数据文件
-
-`data/strategy_full.csv` — 84个穿搭相关关键词的三榜合并分析表，由 `scripts/comprehensive_analysis.py` 生成。
-
-| 关键字段            | 说明                      |
-| --------------- | ----------------------- |
-| keyword         | 归一化后的热词                 |
-| category        | 季节/风格/场景/人群/概念/灵感/品类参考  |
-| lifecycle       | 生命周期阶段（双维度判定）           |
-| search_index_w  | 搜索指数（万），0 表示无搜索数据       |
-| inc_ratio_pct   | 增量占比(%)，衡量增长动能          |
-| competition_pct | 竞争度(%)，同子类中的浏览量占比       |
-| priority        | 高/中/低（综合评分 ≥5 为高，≥3 为中） |
-| recommend_for   | 下游路由：选品/风格/标签/综合        |
+1. 刷新小红书登录态：`data/storage_state.json` 或 `XHS_COOKIE`。
+2. 运行 collector 写入 observation 表。
+3. 运行 `python3 scripts/collector_to_trends.py` 生成 `data/source_collector_trends.csv`。
+4. 运行 `python3 scripts/process_trends.py` 生成检查表 `data/trends_normalized.csv`。
+5. `GenerationPipeline` 中的 TrendRadar 自动读取最新趋势文件。
 
 ### 4.2 ProductMatcher — 商品匹配
 
@@ -288,12 +341,13 @@
 | 层            | 选型                          | 说明                       |
 | ------------ | --------------------------- | ------------------------ |
 | **后端框架**     | Python 3.11+ / FastAPI      | 异步支持好，适合 API 编排，工程师熟悉    |
-| **LLM**      | GPT-4o / Claude 3.5 Sonnet  | 统一处理文案、穿搭合成、趋势分析         |
-| **图片生成**     | DALL-E 3 / Gemini 2.0 Flash | 多模态大模型直出，MVP 不引入 ComfyUI |
+| **文本生成**    | 本地规则化 Skill，保留 OpenAI-compatible LLMClient 兼容层 | 商品匹配、穿搭方案、文案生成当前不强依赖外部文本模型 |
+| **图片生成**     | OpenAI-compatible Images API | 多模态生图服务直出，MVP 不引入 ComfyUI |
 | **数据存储**     | SQLite                      | 轻量零运维，后期可迁移 PostgreSQL   |
 | **图片存储**     | 本地文件系统                      | MVP 够用，按日期/笔记ID 组织目录     |
 | **前端(管理后台)** | FastAPI + Jinja2 模板         | 极简 Web 页面，不引入前后端分离       |
-| **趋势采集**     | requests + BeautifulSoup    | 轻量爬取小红书搜索页               |
+| **趋势采集**     | httpx + xhshow 签名 + Playwright | API 采集搜索/详情，Playwright 用于扫码登录和 DOM 热词 |
+| **趋势处理**     | collector observation + CSV 聚合 | `collector_to_trends.py` 输出 `source_collector_trends.csv` |
 | **部署**       | Docker + docker compose     | 一键启动，面试演示友好              |
 
 ### 不选用的技术（MVP 阶段）
@@ -343,11 +397,25 @@
 │  source_url, attributes{}, images[]                  │
 └─────────────────────────────────────────────────────┘
 
-                    ┌──────────────────┐
-                    │     Trend        │
-                    │ keyword, category│
-                    │ hot_score, date   │
-                    └──────────────────┘
+┌─────────────────────────────────────────────────────┐
+│              CollectorTask / CollectorNote           │
+│  keyword, status, notes_found, notes_saved           │
+│  note_id, title, content_clean, author, metrics      │
+└────────────────────────┬────────────────────────────┘
+                         │ 1:N
+                         ▼
+┌─────────────────────────────────────────────────────┐
+│        CollectorHotwordObservation / NoteObservation │
+│  seed_keyword, hotword, rank, source, observed_at    │
+│  note_id, like_count, collect_count, comment_count   │
+└────────────────────────┬────────────────────────────┘
+                         │ aggregate
+                         ▼
+┌─────────────────────────────────────────────────────┐
+│           source_collector_trends.csv                │
+│  keyword, category, heat_score, growth_score         │
+│  confidence, evidence_count, source, observed_date   │
+└─────────────────────────────────────────────────────┘
 ```
 
 ### 6.2 数据流向
@@ -355,11 +423,11 @@
 ```
 [外部输入]                      [Agent PipeLine]                       [输出]
 
-商品链接 ──┐
-           ├──▶ ProductMatcher ──▶ OutfitComposer ──▶ ImageGenerator ──┐
-小红书热搜 ─┘        │                    │                  │         │
-                     │                    │                  │         │
-              TrendRadar ◀───────────────┘                  │         │
+商品库 ───┐
+          ├──▶ ProductMatcher ──▶ OutfitComposer ──▶ ImageGenerator ──┐
+collector ─▶ source_collector_trends.csv ─▶ TrendRadar ──────────────┘
+          │          │                    │                  │
+          │          └── trends_normalized.csv（检查表）       │
                                                                        │
 博主人设 ◀────────────────────────────────────────────────────┘         │
                                                                        │
@@ -380,13 +448,11 @@
 
 | 方法    | 路径                      | 说明               |
 | ----- | ----------------------- | ---------------- |
-| POST  | `/api/generate`         | 提交商品链接，触发完整生成流程  |
+| POST  | `/api/generate`         | 按人设、商品、风格/场景参数触发完整生成流程 |
 | GET   | `/api/posts`            | 获取生成内容列表（支持状态筛选） |
 | GET   | `/api/posts/{id}`       | 查看单篇生成详情         |
 | PATCH | `/api/posts/{id}`       | 审核通过/驳回/修改内容     |
-| GET   | `/api/trends`           | 查看最新趋势数据         |
-| POST  | `/api/trends/refresh`   | 手动刷新趋势数据         |
-| GET   | `/api/performance/{id}` | 查看单篇发布效果         |
+| GET   | `/api/trends`           | 查看数据库内趋势记录（当前 TrendRadar 主要读取 CSV） |
 | GET   | `/`                     | 管理后台页面           |
 
 ---
@@ -413,11 +479,11 @@
 | -------------------- | --------------------------------------- | ---- |
 | **项目脚手架**            | FastAPI项目结构、SQLite数据模型定义、配置文件、环境变量模板    | 1天   |
 | **LLM API 封装层**      | 统一的LLM调用类（支持GPT-4o/Claude切换）、重试/超时机制    | 1天   |
-| **TrendRadar代码**     | 小红书搜索页爬虫 + LLM趋势分析调用 + 数据存储             | 1.5天 |
-| **ProductMatcher代码** | 商品属性解析 + LLM匹配逻辑 + 搭配合理性校验              | 1.5天 |
-| **OutfitComposer代码** | LLM穿搭合成 + Prompt生成 + JSON结构化输出          | 1天   |
+| **Collector + TrendRadar代码** | 小红书搜索/详情采集、observation 落库、趋势聚合、TrendRadar 综合评分 | 2天 |
+| **ProductMatcher代码** | 商品属性解析 + 本地规则评分 + 搭配合理性校验              | 1.5天 |
+| **OutfitComposer代码** | 本地穿搭合成 + 生图 Prompt生成 + JSON结构化输出          | 1天   |
 | **ImageGenerator代码** | DALL-E/Gemini API封装、图片下载存储、批量生成、基础质量检查  | 1.5天 |
-| **ContentWriter代码**  | LLM文案生成 + 话题标签自动匹配 + 商品标记格式化            | 1天   |
+| **ContentWriter代码**  | 本地文案生成 + 话题标签自动匹配 + 商品标记格式化            | 1天   |
 | **Pipeline编排**       | Skill串联调度 + 中间结果缓存 + 错误处理与回退            | 1天   |
 | **管理后台页面**           | FastAPI+Jinja2 页面：内容列表、详情查看、审核操作、手动触发生成 | 2天   |
 | **SQLite CRUD**      | 所有数据模型的增删改查接口                           | 1天   |
@@ -440,7 +506,7 @@
 | -------------- | -------------------------- | -------------------------------------- |
 | Day 1-2        | 赛道分析文档                     | 项目脚手架 + SQLite数据模型                     |
 | Day 3          | 博主人设设计                     | LLM API封装层 + 配置文件                      |
-| Day 3-4        | TrendRadar Prompt + 规则     | TrendRadar 爬虫 + LLM调用                  |
+| Day 3-4        | 趋势词池 + 标签策略 + 过滤规则     | Collector 采集 + 趋势聚合 + TrendRadar 评分 |
 | Day 4-5        | ProductMatcher Prompt + 规则 | ProductMatcher 代码                      |
 | **Week 1 里程碑** | ✅ 赛道文档 + 人设卡完成             | ✅ 脚手架 + TrendRadar + ProductMatcher 可跑 |
 
@@ -574,6 +640,14 @@ xiaohongshu-agent/
 │   │   ├── content_writer.py
 │   │   └── performance_tracker.py
 │   ├── pipeline.py            # Skill 编排调度
+│   ├── trend_sources.py       # collector 趋势源读取与分类
+│   ├── collector/             # 小红书采集器
+│   │   ├── client.py          # XHS API 签名请求
+│   │   ├── runner.py          # 采集编排、多排序候选池、去重
+│   │   ├── ranking.py         # 一周内赞/评/藏 TopN 筛选
+│   │   ├── candidates.py      # 多排序候选池合并
+│   │   ├── browser.py         # Playwright 扫码登录
+│   │   └── store.py           # observation 落库与导出
 │   ├── llm_client.py          # LLM API 封装
 │   ├── routes/                # API 路由
 │   │   ├── __init__.py
@@ -586,7 +660,12 @@ xiaohongshu-agent/
 │       ├── post_detail.html
 │       └── trends.html
 ├── tests/                     # 测试
-├── data/                      # 商品库CSV、初始数据
+├── scripts/
+│   ├── collector_to_trends.py # observation 聚合为 source_collector_trends.csv
+│   └── process_trends.py      # TrendRadar 输入检查表导出
+├── data/                      # 商品库CSV、persona、collector 趋势输出
+│   ├── source_collector_trends.csv
+│   └── trends_normalized.csv
 ├── storage/                   # 生成的图片
 │   └── images/
 ├── docker-compose.yml
@@ -598,13 +677,13 @@ xiaohongshu-agent/
 
 ### B. 关键 API Key 清单
 
-| 服务          | 用途                             | 获取方式                  |
-| ----------- | ------------------------------ | --------------------- |
-| OpenAI API  | GPT-4o (文案+穿搭) + DALL-E 3 (生图) | platform.openai.com   |
-| 或 Google AI | Gemini (文案、趋势、生图)              | aistudio.google.com   |
-| 或 Anthropic | Claude (文案+穿搭)                 | console.anthropic.com |
+| 服务 | 用途 | 获取方式 |
+| ---- | ---- | ---- |
+| OpenAI-compatible Images API | 虚拟博主穿搭图片生成 | OpenAI 或兼容图片模型服务 |
+| 小红书登录态 | collector API 采集和扫码刷新 `storage_state.json` | Playwright 扫码登录或 `XHS_COOKIE` |
+| OpenAI-compatible Chat API（可选） | 兼容旧脚本/后续增强，不是当前生文必需项 | OpenAI 或兼容文本模型服务 |
 
-> MVP 阶段推荐全用一家（如 OpenAI）减少接入复杂度。如果成本敏感，可用 Gemini 替代（免费额度充足）。
+> 当前 ProductMatcher、OutfitComposer、ContentWriter、PerformanceTracker 均为本地策略实现；图片生成仍需要 `IMAGE_API_KEY / IMAGE_BASE_URL / IMAGE_MODEL`。
 
 ### C. 虚拟博主人设模板
 

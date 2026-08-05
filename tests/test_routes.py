@@ -3,7 +3,7 @@ from app.models import BloggerPersona, Product, GeneratedPost, Outfit
 
 
 def seed_persona(db):
-    p = BloggerPersona(name="测试博主", body_type="大码", style_tags=["法式"])
+    p = BloggerPersona(name="测试博主", body_type="小个子", style_tags=["法式"])
     db.add(p)
     db.commit()
     return p

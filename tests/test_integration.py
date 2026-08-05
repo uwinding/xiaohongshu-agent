@@ -7,13 +7,15 @@ from app.pipeline import GenerationPipeline
 
 def seed_persona(db):
     p = BloggerPersona(
-        name="小鹿学姐",
-        body_type="大码",
-        size_category="XL-2XL",
-        style_tags=["法式", "通勤"],
-        tone_of_voice="亲切温柔",
-        avatar_desc="圆脸、温柔杏眼、长发微卷",
-        avoid_tags=["紧身"],
+        name="小鹿",
+        age_range="20-24",
+        body_type="小个子",
+        size_category="XS-S",
+        height="158cm",
+        style_tags=["甜美", "韩系", "轻法式"],
+        tone_of_voice="亲切轻松，像朋友分享小个子穿搭经验",
+        avatar_desc="小巧鹅蛋脸、黑色短波波头、轻薄空气刘海、自然浅暖肤色",
+        avoid_tags=["宽大长上衣", "超长拖地"],
     )
     db.add(p)
     db.commit()
@@ -50,11 +52,11 @@ def test_full_pipeline_integration(mock_get_db, setup_db):
         call_count += 1
         if call_count == 1:
             return LLMResponse(
-                content=f'{{"product_set":[{{"id":{products[0].id},"name":"{products[0].name}","category":"{products[0].category}","reason":"A字版型适合大码","match_score":9}}],"overall_match_score":9.0,"style_match":"法式优雅"}}',
+                content=f'{{"product_set":[{{"id":{products[0].id},"name":"{products[0].name}","category":"{products[0].category}","reason":"高腰A字版型适合小个子","match_score":9}}],"overall_match_score":9.0,"style_match":"甜感韩系"}}',
                 model="gpt-4o", tokens_used=200)
         elif call_count == 2:
             return LLMResponse(
-                content='{"outfit_desc":"法式碎花A字连衣裙搭配米白针织开衫和高腰阔腿裤，整体温柔大方。A字版型完美遮肉。","pos_prompt":"A plus-size woman wearing French floral dress, white cardigan, black wide-leg pants, coffee shop, soft light, full body shot","neg_prompt":"tight fit, horizontal stripes","scene":"法式咖啡馆"}',
+                content='{"outfit_desc":"高腰A字裙搭配短款针织衫，抬高腰线并保持清爽甜感。","pos_prompt":"A petite young woman wearing a high-waist A-line skirt and cropped cardigan, full body shot","neg_prompt":"oversized silhouette, tall supermodel body","scene":"夏日街角"}',
                 model="gpt-4o", tokens_used=300)
         return LLMResponse(content='{}', model="gpt-4o", tokens_used=100)
 
@@ -72,9 +74,9 @@ def test_full_pipeline_integration(mock_get_db, setup_db):
             mock_write.return_value = MagicMock(
                 success=True,
                 data={
-                    "title": "绝绝子！大码姐妹的法式穿搭 氛围感拉满",
-                    "content": "姐妹们！这套法式穿搭真的太适合我们微胖女生了...",
-                    "hashtags": ["大码穿搭", "法式穿搭", "显瘦穿搭"],
+                    "title": "小个子夏日穿搭，腰线一高比例就出来了",
+                    "content": "小个子真的可以试试这套，清爽又显高。",
+                    "hashtags": ["小个子穿搭", "显高穿搭", "韩系穿搭"],
                     "product_tags": [{"name": products[0].name, "url": products[0].source_url or ""}],
                 },
             )
@@ -87,3 +89,4 @@ def test_full_pipeline_integration(mock_get_db, setup_db):
     assert len(result["images"]) == 2
     assert "outfit" in result
     assert result["outfit"]["description"] is not None
+    assert "quality_report" in result
